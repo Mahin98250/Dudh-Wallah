@@ -124,6 +124,15 @@ async function loadProviderOrders(){
  list.querySelectorAll("[data-order-status]").forEach(function(button){button.onclick=async function(){button.disabled=true;const status=button.dataset.orderStatus;let reason=null;if(status==="rejected"||status==="cancelled"){reason=prompt(status==="rejected"?"Why are you declining this order?":"Why are you cancelling this order?")||"Provider action"}const result=await Doodhwala.supabase.from("orders").update({status:status,status_reason:reason,updated_at:new Date().toISOString()}).eq("id",button.dataset.orderId).eq("provider_owner_id",user.id).select("id,status").single();if(result.error){toast(result.error.message);button.disabled=false;return}toast("Order updated");loadProviderOrders()}})
 }
 $("refreshOrders")?.addEventListener("click",loadProviderOrders);
+$("providerSignout")?.addEventListener("click",async function(){
+ if(!confirm("Sign out of the provider account on this device?"))return;
+ if(window.Doodhwala?.configured){const result=await Doodhwala.supabase.auth.signOut();if(result.error){toast(result.error.message);return}}
+ $("providerMode").textContent="LOCAL SETUP";
+ $("providerAuthLink").textContent="Sign in";
+ $("providerAuthLink").href="/Dudh-Wallah/auth.html?return=/Dudh-Wallah/provider.html";
+ toast("Signed out. You can now view Doodhwala as a customer.");
+ setTimeout(()=>{location.href="/Dudh-Wallah/"},700);
+});
 $("mobileProfile").onclick=()=>showView("profile");
 $("resetProvider").onclick=()=>{if(!confirm("Reset the Phase 2 demo provider and return to onboarding?"))return;localStorage.removeItem(STORAGE_KEY);location.reload()};
 if(provider.providerName){onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();if(window.Doodhwala?.configured){Doodhwala.supabase.auth.getUser().then(function(r){if(r.data?.user){$("providerAuthLink").textContent="Account";$("providerAuthLink").href="/Dudh-Wallah/provider.html";syncProviderBackend().then(function(res){$("providerMode").textContent=res.ok?(res.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION"):"LOCAL DEMO"}).catch(function(){})}})}}else{$("providerName").value=provider.providerName||"";$("ownerName").value=provider.ownerName||"";$("phone").value=provider.phone||"";$("providerType").value=""}
