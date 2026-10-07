@@ -133,6 +133,7 @@ $("providerSignout")?.addEventListener("click",async function(){
  toast("Signed out. You can now view Doodhwala as a customer.");
  setTimeout(()=>{location.href="/Dudh-Wallah/"},700);
 });
+$("providerTopSignout")?.addEventListener("click",()=>$("providerSignout")?.click());
 $("mobileProfile").onclick=()=>showView("profile");
 $("resetProvider").onclick=()=>{if(!confirm("Reset the Phase 2 demo provider and return to onboarding?"))return;localStorage.removeItem(STORAGE_KEY);location.reload()};
 if(provider.providerName){onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();if(window.Doodhwala?.configured){Doodhwala.supabase.auth.getUser().then(function(r){if(r.data?.user){$("providerAuthLink").textContent="Account";$("providerAuthLink").href="/Dudh-Wallah/provider.html";syncProviderBackend().then(function(res){$("providerMode").textContent=res.ok?(res.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION"):"LOCAL DEMO"}).catch(function(){})}})}}else{$("providerName").value=provider.providerName||"";$("ownerName").value=provider.ownerName||"";$("phone").value=provider.phone||"";$("providerType").value=""}
