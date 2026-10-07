@@ -26,7 +26,7 @@
     <section class="onboard-step active" data-step="1">
       <span class="eyebrow">STEP 1 OF 3</span>
       <h1>Tell us about your milk business.</h1>
-      <p class="onboard-copy">Doodhwala is for genuine independent/local milk providers. Keep the profile simple and accurate.</p>
+      <p class="onboard-copy">Doodhwala is for genuine independent/local milk providers. Keep the profile accurate so customers can trust what they order.</p>
       <div class="form-grid">
         <label>Provider / dairy name<input id="providerName" placeholder="e.g. Patel Milk Home"></label>
         <label>Owner name<input id="ownerName" placeholder="e.g. Mahesh Patel"></label>
@@ -58,10 +58,10 @@
         <label>Available every day<select id="firstMilkDays"><option value="yes">Yes</option><option value="no">No — I'll manage days later</option></select></label>
         <label>Stock status<select id="firstMilkStock"><option value="in">In stock</option><option value="out">Currently unavailable</option></select></label>
       </div>
-      <div class="verification-note"><span>✓</span><div><b>Trust & verification</b><p>Document upload and manual verification will be connected to the backend phase. This MVP saves your onboarding locally in this browser.</p></div></div>
+      <div class="verification-note"><span>✓</span><div><b>Trust & verification</b><p>Your provider setup is saved on this device until you sign in. Once connected, the profile and catalogue sync to the live Doodhwala backend.</p></div></div>
       <div class="step-actions"><button class="secondary" data-back="2">← Back</button><button class="provider-primary" id="finishOnboarding">Create provider dashboard <span>→</span></button></div>
     </section>
-    <p class="demo-note">Provider MVP • Browser-only demo data • No real account is created yet.</p>
+    <p class="demo-note">Provider setup is local until you sign in. Signed-in providers sync their profile and catalogue with Doodhwala.</p>
   </div>
 </div>
 
@@ -77,15 +77,15 @@
       <button data-view="service">⌖ <span>Service area</span></button>
       <button data-view="profile">◎ <span>Profile & trust</span></button>
     </nav>
-    <div class="provider-sidebar-note"><span class="eyebrow">PHASE 2</span><b>Local seller tools are live.</b><small>Add products, prices, delivery area and availability from one place.</small></div>
-    <button class="provider-signout" id="resetProvider">↻ Reset demo provider</button>
+    <div class="provider-sidebar-note"><span class="eyebrow">PROVIDER TOOLS</span><b>Local seller tools are live.</b><small>Add products, prices, delivery area and availability from one place.</small></div>
+    <button class="provider-signout" id="resetProvider">↻ Clear local setup</button>
   </aside>
 
   <main class="provider-main">
     <header class="provider-topbar">
       <div class="provider-mobile-brand"><img src="/Dudh-Wallah/assets/logo.svg" alt=""><b>Doodhwala</b></div>
       <div class="provider-top-title"><span class="eyebrow">PROVIDER CONSOLE</span><h2 id="topProviderName">Provider dashboard</h2></div>
-      <div class="provider-top-actions"><span class="demo-pill" id="providerMode">LOCAL DEMO</span><a class="provider-auth-link" id="providerAuthLink" href="/Dudh-Wallah/auth.html?return=./provider.html">Sign in</a><button id="mobileProfile">◎</button></div>
+      <div class="provider-top-actions"><span class="demo-pill" id="providerMode">SETUP MODE</span><a class="provider-auth-link" id="providerAuthLink" href="/Dudh-Wallah/auth.html?return=./provider.html">Sign in</a><button id="mobileProfile">◎</button></div>
     </header>
 
     <section class="provider-view active" id="view-overview">
