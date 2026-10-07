@@ -53,6 +53,26 @@
     map = L.map(mapEl, { zoomControl: true, attributionControl: true, preferCanvas: true }).setView([23.0225, 72.5714], 12);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
     providerLayer = L.layerGroup().addTo(map);
+    map.on("click", event => {
+      const accuracy = lastPosition?.accuracy || null;
+      lastPosition = {
+        latitude: Number(event.latlng.lat.toFixed(7)),
+        longitude: Number(event.latlng.lng.toFixed(7)),
+        accuracy,
+        savedAt: new Date().toISOString()
+      };
+      saved = lastPosition;
+      localStorage.setItem(LOCATION_KEY, JSON.stringify(lastPosition));
+      setPageLocationLabel("Pinned location");
+      drawUser(lastPosition, true);
+      setText(stateEl, "Pin moved. Tap Done to use this delivery location.");
+      setText(accuracyEl, "Pinned on map");
+      if (typeof window.loadRemoteProviders === 'function') {
+        window.loadRemoteProviders(lastPosition.latitude, lastPosition.longitude)
+          .then(refreshProviderMarkers)
+          .catch(() => {});
+      }
+    });
     if (lastPosition) {
       drawUser(lastPosition, false);
       map.setView([lastPosition.latitude, lastPosition.longitude], 14);
