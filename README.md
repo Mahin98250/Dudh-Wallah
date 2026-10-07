@@ -34,6 +34,24 @@ The repository now includes a complete browser-only provider workflow at `/provi
 
 This phase is intentionally backend-free. It proves the provider experience before authentication, database, document verification and real orders are connected.
 
+## Phase 3 + 4 backend foundation ✅
+
+The repository now contains the real marketplace backend contract and customer auth/checkout integration:
+
+- Supabase schema + RLS migration for customers, local providers, milk products, service areas, addresses, orders and order items
+- Provider verification state that starts at pending and cannot be self-approved through normal provider permissions
+- Private atomic order-creation function that validates ownership, provider availability, product availability and database pricing
+- Distance-aware provider discovery RPC using latitude/longitude + Haversine distance
+- Supabase browser client configuration with the publishable key only
+- Customer email/password authentication flow
+- Provider console sync to Supabase when an authenticated provider is connected
+- Delivery address capture
+- Multi-provider cart grouping into separate provider orders
+- Checkout → order creation flow
+- Setup instructions in SUPABASE_SETUP.md
+
+The Doodhwala Supabase project itself has not yet been provisioned. Until credentials are added, the UI intentionally continues to use demo provider data.
+
 ## First MVP in this repository
 
 - Doodhwala customer home/explore experience
@@ -86,10 +104,10 @@ The production system should enforce a provider policy at onboarding/admin level
 
 1. Customer MVP and responsive UX ✅
 2. Provider onboarding + provider dashboard ✅
-3. Supabase schema + Auth + RLS
-4. Location-aware provider discovery
-5. Product catalogue + availability
-6. Cart → address → checkout
+3. Supabase schema + Auth + RLS ✅
+4. Location-aware provider discovery ✅
+5. Product catalogue + availability ✅
+6. Cart → address → checkout ✅
 7. Orders + notifications
 8. Recurring milk subscriptions
 9. Payments
