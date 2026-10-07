@@ -37,7 +37,7 @@ function render(){
  $("planLink").href="/Dudh-Wallah/plans.html?provider="+encodeURIComponent(store.provider_id)+"&product="+encodeURIComponent(product.id);
  const box=$("locationService");
  if(store.is_serviceable===true){box.className="location-service-card good";$("locationServiceTitle").textContent="✓ Delivery available";$("locationServiceCopy").textContent=store.distance_km+" km from you · inside "+store.service_radius_km+" km provider zone."}
- else if(store.is_serviceable===false){box.className="location-service-card bad";$("locationServiceTitle").textContent="Outside this provider's zone";$("locationServiceCopy").textContent="You're "+store.distance_km+" km away, while this provider serves up to "+store.service_radius_km+" km. Change your location to find a closer provider."}
+ else if(store.is_serviceable===false){box.className="location-service-card bad";$("locationServiceTitle").textContent="Outside this provider's zone";$("locationServiceCopy").textContent="You're "+store.distance_km+" km away, while this provider serves up to "+store.service_radius_km+" km. Change your location to find a closer provider.";$("addToCart").disabled=true;$("addToCart").textContent="Unavailable here"}
  else {box.className="location-service-card";$("locationServiceTitle").textContent="Check delivery availability";$("locationServiceCopy").textContent="Choose a delivery location to see if this provider serves you."}
 }
 async function load(){
@@ -54,4 +54,5 @@ async function load(){
 $("minus").onclick=()=>{qty=Math.max(1,qty-1);render()};
 $("plus").onclick=()=>{qty=Math.min(100,qty+1);render()};
 $("addToCart").onclick=add;
+$("addToCart").disabled=false;
 load();
