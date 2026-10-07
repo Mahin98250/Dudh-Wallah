@@ -67,11 +67,11 @@ function setupAdminRealtime(){
  window.__doodhwalaAdminChannel=Doodhwala.supabase.channel("admin-live-control")
    .on("postgres_changes",{event:"*",schema:"public",table:"orders"},function(){
      const s=$("adminLiveStatus");if(s){s.textContent="● Updating";s.classList.add("updating");setTimeout(()=>{s.textContent="● Live";s.classList.remove("updating")},900)}
-     loadSection(section);
+     clearTimeout(window.__adminRealtimeRefresh);window.__adminRealtimeRefresh=setTimeout(()=>loadSection(section),300);
    })
-   .on("postgres_changes",{event:"*",schema:"public",table:"provider_profiles"},function(){if(section==="providers"||section==="overview")loadSection(section)})
-   .on("postgres_changes",{event:"*",schema:"public",table:"provider_verifications"},function(){if(section==="providers"||section==="overview")loadSection(section)})
-   .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions"},function(){if(section==="subscriptions"||section==="overview")loadSection(section)})
+   .on("postgres_changes",{event:"*",schema:"public",table:"provider_profiles"},function(){if(section==="providers"||section==="overview"){clearTimeout(window.__adminRealtimeRefresh);window.__adminRealtimeRefresh=setTimeout(()=>loadSection(section),300)}})
+   .on("postgres_changes",{event:"*",schema:"public",table:"provider_verifications"},function(){if(section==="providers"||section==="overview"){clearTimeout(window.__adminRealtimeRefresh);window.__adminRealtimeRefresh=setTimeout(()=>loadSection(section),300)}})
+   .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions"},function(){if(section==="subscriptions"||section==="overview"){clearTimeout(window.__adminRealtimeRefresh);window.__adminRealtimeRefresh=setTimeout(()=>loadSection(section),300)}})
    .subscribe();
 }
 async function loadSection(next){
