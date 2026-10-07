@@ -107,6 +107,20 @@ async function loadProviderRoute(dateValue=routeDate){
 }
 ["routePrev","routeNext","routeToday"].forEach(function(id){$(id)?.addEventListener("click",function(){if(id==="routePrev")routeDate=addIsoDate(routeDate,-1);else if(id==="routeNext")routeDate=addIsoDate(routeDate,1);else routeDate=localIsoDate();loadProviderRoute(routeDate)})});
 
+function orderDeadline(createdAt,timeoutMinutes){
+ const t=new Date(createdAt).getTime()+Math.max(1,Number(timeoutMinutes||10))*60000;
+ const left=t-Date.now();
+ if(left<=0)return {label:"Response window expired",urgent:true,deadline:t};
+ const seconds=Math.floor(left/1000),mins=Math.floor(seconds/60),secs=seconds%60;
+ return {label:"Respond within "+mins+"m "+String(secs).padStart(2,"0")+"s",urgent:mins<2,deadline:t};
+}
+function refreshOrderDeadlines(){
+ document.querySelectorAll("[data-order-deadline]").forEach(function(el){
+   const d=orderDeadline(el.dataset.orderCreated,el.dataset.orderTimeout);
+   el.textContent=d.label;
+   el.classList.toggle("urgent",d.urgent);
+ });
+}
 function orderActions(order){const s=order.status;const actions=[];if(s==="placed"){actions.push(["accepted","Accept order","primary-action"],["rejected","Decline","danger-action"])}else if(s==="accepted"){actions.push(["preparing","Start packing","primary-action"],["cancelled","Cancel","danger-action"])}else if(s==="preparing"){actions.push(["ready","Mark ready","primary-action"],["cancelled","Cancel","danger-action"])}else if(s==="ready"){actions.push(["out_for_delivery","Out for delivery","primary-action"],["cancelled","Cancel","danger-action"])}else if(s==="out_for_delivery"){actions.push(["delivered","Mark delivered","primary-action"])}return actions.map(a=>'<button class="'+a[2]+'" data-order-status="'+a[0]+'" data-order-id="'+order.id+'">'+a[1]+"</button>").join("")}
 async function loadProviderOrders(){
  const state=$("providerOrderState"),list=$("providerOrders");if(!state||!list)return;
@@ -115,12 +129,21 @@ async function loadProviderOrders(){
  if(!user){state.textContent="Sign in to manage live orders.";list.innerHTML="";return}
  const profile=await Doodhwala.supabase.from("provider_profiles").select("id,acceptance_timeout_minutes,max_open_orders,max_daily_litres").eq("owner_user_id",user.id).limit(1).maybeSingle();
  if(profile.error){state.textContent=profile.error.message;return}
- if(!profile.data){state.textContent="Complete provider onboarding first.";list.innerHTML="";return}if(!window.__doodhwalaProviderOrdersChannel){window.__doodhwalaProviderOrdersChannel=Doodhwala.supabase.channel("provider-orders-"+user.id).on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"provider_owner_id=eq."+user.id},function(){loadProviderOrders()}).subscribe()}
+ if(!profile.data){state.textContent="Complete provider onboarding first.";list.innerHTML="";return}if(!window.__doodhwalaProviderOrdersChannel){
+ window.__doodhwalaProviderOrdersChannel=Doodhwala.supabase.channel("provider-orders-"+user.id)
+ .on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"provider_owner_id=eq."+user.id},function(payload){
+   if(payload?.eventType==="INSERT"&&payload?.new?.status==="placed"){
+     toast("New customer order received");
+     try{navigator.vibrate?.([120,60,120])}catch(_){}
+   }
+   loadProviderOrders()
+ }).subscribe()
+}
  const result=await Doodhwala.supabase.from("orders").select("id,status,status_reason,subtotal,delivery_fee,total,customer_note,created_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,order_items(product_name_snapshot,quantity,unit_price,line_total)").eq("provider_id",profile.data.id).order("created_at",{ascending:false}).limit(50);
  if(result.error){state.textContent=result.error.message;list.innerHTML="";return}
  const orders=result.data||[];state.textContent=orders.length?orders.length+" order"+(orders.length===1?"":"s")+" in your queue":"No live orders yet";
  if(!orders.length){list.innerHTML='<div class="order-empty"><b>Your order queue is clear.</b>New customer orders will appear here automatically after checkout.</div>';return}
- list.innerHTML=orders.map(function(o){return '<article class="provider-order"><div class="provider-order-head"><div><div class="provider-order-id">Order '+escapeHtml(o.id)+'</div><div class="provider-order-time">'+escapeHtml(orderTime(o.created_at))+'</div></div><span class="order-status '+escapeHtml(o.status)+'">'+escapeHtml(orderStatusLabel(o.status))+'</span></div><div class="provider-order-grid"><div class="order-panel"><small>Customer</small><b>'+escapeHtml(o.delivery_recipient_name||"Customer")+'</b><span>'+escapeHtml(o.delivery_phone||"No phone")+'</span></div><div class="order-panel"><small>Delivery</small><b>'+escapeHtml(o.delivery_address_line||"Address unavailable")+'</b><span>'+escapeHtml([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", "))+'</span></div></div><div class="order-items">'+(o.order_items||[]).map(function(i){return '<div class="order-item"><span>'+escapeHtml(i.product_name_snapshot)+' × '+i.quantity+'</span><b>'+orderMoney(i.line_total)+'</b></div>'}).join("")+'</div><div class="provider-order-head" style="margin-top:14px"><b>Total '+orderMoney(o.total)+'</b><span>'+escapeHtml(o.customer_note||"No customer note")+'</span></div><div class="order-actions">'+orderActions(o)+'</div></article>'}).join("");
+ list.innerHTML=orders.map(function(o){const deadline=o.status==="placed"?orderDeadline(o.created_at,profile.data.acceptance_timeout_minutes):null;return '<article class="provider-order"><div class="provider-order-head"><div><div class="provider-order-id">Order '+escapeHtml(o.id)+'</div><div class="provider-order-time">'+escapeHtml(orderTime(o.created_at))+'</div></div><div class="order-head-status"><span class="order-status '+escapeHtml(o.status)+'">'+escapeHtml(orderStatusLabel(o.status))+'</span>'+(deadline?'<span class="order-deadline'+(deadline.urgent?' urgent':'')+'" data-order-deadline data-order-created="'+escapeHtml(o.created_at)+'" data-order-timeout="'+escapeHtml(profile.data.acceptance_timeout_minutes)+'">'+escapeHtml(deadline.label)+'</span>':"")+'</div></div><div class="provider-order-grid"><div class="order-panel"><small>Customer</small><b>'+escapeHtml(o.delivery_recipient_name||"Customer")+'</b><span>'+escapeHtml(o.delivery_phone||"No phone")+'</span></div><div class="order-panel"><small>Delivery</small><b>'+escapeHtml(o.delivery_address_line||"Address unavailable")+'</b><span>'+escapeHtml([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", "))+'</span></div></div><div class="order-items">'+(o.order_items||[]).map(function(i){return '<div class="order-item"><span>'+escapeHtml(i.product_name_snapshot)+' × '+i.quantity+'</span><b>'+orderMoney(i.line_total)+'</b></div>'}).join("")+'</div><div class="provider-order-head" style="margin-top:14px"><b>Total '+orderMoney(o.total)+'</b><span>'+escapeHtml(o.customer_note||"No customer note")+'</span></div><div class="order-actions">'+orderActions(o)+'</div></article>'}).join("");
  list.querySelectorAll("[data-order-status]").forEach(function(button){
   button.onclick=async function(){
     button.disabled=true;
@@ -141,7 +164,7 @@ async function loadProviderOrders(){
   }
 })
 }
-$("refreshOrders")?.addEventListener("click",loadProviderOrders);
+$("refreshOrders")?.addEventListener("click",loadProviderOrders);\nclearInterval(window.__providerDeadlineTimer);window.__providerDeadlineTimer=setInterval(refreshOrderDeadlines,1000);
 async function signOutProvider(event){
  if(event){event.preventDefault();event.stopPropagation();}
  const buttons=[$("providerSignout"),$("providerTopSignout")].filter(Boolean);
