@@ -1,7 +1,7 @@
 let mode="signin";
 const form=document.getElementById("authForm"),fullName=document.getElementById("fullName"),email=document.getElementById("email"),password=document.getElementById("password"),submit=document.getElementById("submitAuth"),message=document.getElementById("authMessage");
 function showMessage(text,error=false){message.textContent=text;message.className="auth-message show"+(error?" error":"")}
-function getReturnPath(){const value=new URLSearchParams(location.search).get("return")||"./";return value.startsWith("./")&&!value.startsWith(".//")?value:"./"}
+function getReturnPath(){const value=new URLSearchParams(location.search).get("return")||"/Dudh-Wallah/";return value.startsWith("/Dudh-Wallah/")?value:"/Dudh-Wallah/"}
 function setMode(next){mode=next;document.querySelectorAll("[data-mode]").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));fullName.style.display=mode==="signup"?"block":"none";fullName.parentElement.style.display=mode==="signup"?"grid":"none";submit.textContent=mode==="signup"?"Create account →":"Sign in →";document.getElementById("authTitle").textContent=mode==="signup"?"Join Doodhwala.":"Welcome back.";document.getElementById("authIntro").textContent=mode==="signup"?"Create your customer account to order local milk and save delivery addresses.":"Sign in to save addresses, place orders and manage your milk deliveries."}
 document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 setMode("signin");
