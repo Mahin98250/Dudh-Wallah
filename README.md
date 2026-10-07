@@ -14,6 +14,26 @@ Think of the convenience and discovery model of a food-delivery marketplace, but
 - Trust, verification, ratings, delivery reliability and locality are core product features.
 - The customer interface is intentionally adapted for mobile, tablet/laptop and desktop rather than simply scaling one layout.
 
+## Phase 2 provider side ✅
+
+The repository now includes a complete browser-only provider workflow at `/provider.html`:
+
+- 3-step provider onboarding
+- Provider identity, owner and phone capture
+- Primary milk type selection
+- Base locality, city, PIN and delivery radius
+- Delivery time window
+- First milk product setup
+- Provider dashboard with profile progress and readiness KPIs
+- Milk catalogue with add / edit / delete / activate / pause
+- Product search and stock filtering
+- Service-area editor with delivery radius and time window
+- Provider profile and trust/verification centre
+- Separate provider mobile navigation and desktop sidebar
+- LocalStorage persistence for Phase 2 demo data
+
+This phase is intentionally backend-free. It proves the provider experience before authentication, database, document verification and real orders are connected.
+
 ## First MVP in this repository
 
 - Doodhwala customer home/explore experience
@@ -65,7 +85,7 @@ The production system should enforce a provider policy at onboarding/admin level
 ## Development phases
 
 1. Customer MVP and responsive UX ✅
-2. Provider onboarding + provider dashboard
+2. Provider onboarding + provider dashboard ✅
 3. Supabase schema + Auth + RLS
 4. Location-aware provider discovery
 5. Product catalogue + availability
