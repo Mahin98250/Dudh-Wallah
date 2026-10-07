@@ -38,7 +38,7 @@ function render(){
    if(dataState==="loading")meta.textContent="Finding local providers…";
    else if(dataState==="error")meta.textContent="Marketplace connection unavailable";
    else if(browseMode==="saved")meta.textContent=list.length+" saved provider"+(list.length===1?"":"s");
-   else if(readLocation())meta.textContent=list.length+" local provider"+(list.length===1?"":"s")+" serviceable around you";
+   else if(readLocation()){const deliverable=list.filter(p=>p.isServiceable===true).length;meta.textContent=deliverable+" provider"+(deliverable===1?"":"s")+" can deliver here"+(list.length>deliverable?" · "+list.length+" nearby":"");}
    else meta.textContent=list.length+" local provider"+(list.length===1?"":"s")+" · set a location to check delivery";
  }
  if(!grid)return;
