@@ -124,6 +124,23 @@ function routeClock(v){try{return new Intl.DateTimeFormat("en-IN",{timeZone:"Asi
 function routeDeliveryLabel(d){if(d.delivery_status==="delivered"||d.order_status==="delivered")return["Delivered","done"];if(d.delivery_status==="materialized"&&d.order_status)return[orderStatusLabel(d.order_status),"live"];if(d.delivery_status==="materialized")return["Order created","live"];return["Scheduled","warn"]}
 function routeSummary(rows){const active=rows.filter(r=>r.delivery_status==="scheduled"||r.delivery_status==="materialized"||r.delivery_status==="delivered");const litres=active.reduce((sum,r)=>sum+Number(r.quantity_litres||0),0);const customers=new Set(active.map(r=>r.customer_id)).size;const orders=active.filter(r=>r.order_id).length;return {active,litres,customers,orders}}
 let routeDate=localIsoDate();
+
+function setupProviderRouteRealtime(user,providerId){
+ if(!window.Doodhwala?.configured||!user||window.__doodhwalaProviderRouteChannel)return;
+ const refresh=()=>{
+   clearTimeout(window.__providerRouteRealtimeRefresh);
+   window.__providerRouteRealtimeRefresh=setTimeout(function(){
+     if(document.visibilityState!=="hidden")loadProviderRoute(routeDate).catch(function(err){console.warn("Provider route realtime refresh failed",err)});
+   },350);
+ };
+ const channel=Doodhwala.supabase.channel("provider-route-"+user.id)
+   .on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"provider_owner_id=eq."+user.id},refresh)
+   .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions",filter:providerId?"provider_id=eq."+providerId:undefined},refresh)
+   .on("postgres_changes",{event:"*",schema:"public",table:"subscription_deliveries"},refresh)
+   .subscribe();
+ window.__doodhwalaProviderRouteChannel=channel;
+}
+
 async function loadProviderDispatchBoard(dateValue=routeDate){
  const state=$("dispatchSummary"),list=$("dispatchList");if(!state||!list)return;
  if(!window.Doodhwala?.configured){state.textContent="Dispatch backend unavailable.";list.innerHTML="";return}
@@ -145,6 +162,12 @@ async function loadProviderRoute(dateValue=routeDate){
  routeDate=dateValue||localIsoDate();if(dateEl)dateEl.textContent=routeDateText(routeDate);
  if(!window.Doodhwala?.configured){state.textContent="Connect Supabase to load the live route.";kpis.innerHTML="";list.innerHTML='<div class="route-empty"><b>Route data is not connected.</b><p>Sign in and publish the provider profile to see recurring deliveries here.</p></div>';return}
  const auth=await Doodhwala.supabase.auth.getUser(),user=auth.data?.user;if(!user){state.textContent="Sign in to manage the live route.";kpis.innerHTML="";list.innerHTML='<div class="route-empty"><b>Provider account required.</b><p>Sign in to load your recurring customer route.</p></div>';return}
+ let routeProviderId=provider.backendProviderId||null;
+ if(!routeProviderId){
+   const profile=await Doodhwala.supabase.from("provider_profiles").select("id").eq("owner_user_id",user.id).maybeSingle();
+   if(!profile.error&&profile.data?.id){routeProviderId=profile.data.id;provider.backendProviderId=routeProviderId;save()}
+ }
+ setupProviderRouteRealtime(user,routeProviderId);
  const r=await Doodhwala.supabase.rpc("get_provider_delivery_route",{p_delivery_date:routeDate});if(r.error){state.textContent=r.error.message;kpis.innerHTML="";list.innerHTML="";return}
  const rows=r.data||[],s=routeSummary(rows);state.textContent=s.active.length?(s.active.length+" recurring delivery"+(s.active.length===1?"":" deliveries")+" scheduled"):"No recurring deliveries scheduled";
  kpis.innerHTML='<div class="route-kpi"><small>CUSTOMERS</small><b>'+s.customers+'</b></div><div class="route-kpi"><small>TOTAL LITRES</small><b>'+Number(s.litres).toLocaleString("en-IN",{maximumFractionDigits:2})+' L</b></div><div class="route-kpi"><small>DELIVERIES</small><b>'+s.active.length+'</b></div><div class="route-kpi"><small>ORDERS CREATED</small><b>'+s.orders+'</b></div>';
@@ -285,4 +308,9 @@ $("providerTopSignout")?.addEventListener("click",signOutProvider);
 $("mobileProfile").onclick=()=>showView("profile");
 $("resetProvider").onclick=()=>{if(!confirm("Reset the Phase 2 demo provider and return to onboarding?"))return;localStorage.removeItem(STORAGE_KEY);location.reload()};
 if(provider.providerName){onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();renderStoreStatus();if(window.Doodhwala?.configured){Doodhwala.supabase.auth.getUser().then(function(r){if(r.data?.user){$("providerAuthLink").textContent="Account";$("providerAuthLink").href="/Dudh-Wallah/provider.html";refreshStoreStatus().then(function(){return syncProviderBackend()}).then(function(res){$("providerMode").textContent=res.ok?(res.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION"):"LOCAL DEMO"}).catch(function(){})}})}}else{$("providerName").value=provider.providerName||"";$("ownerName").value=provider.ownerName||"";$("phone").value=provider.phone||"";$("providerType").value=""}
+document.addEventListener("visibilitychange",function(){
+ if(document.visibilityState==="visible"&&dashboard&&!dashboard.classList.contains("hidden")){
+   loadProviderRoute(routeDate).catch(function(err){console.warn("Provider route resume refresh failed",err)});
+ }
+});
 window.addEventListener("keydown",e=>{if(e.key==="Escape"){const modal=document.querySelector(".product-modal");if(modal)modal.remove()}});
