@@ -417,7 +417,7 @@ footer{padding:0 58px 95px;font-size:9px;color:#859087;display:flex;justify-cont
   .location-modal-head h2{font-size:22px}
   .location-modal-head p{font-size:10px}
   .location-map{height:50vh;min-height:320px}
-  .location-modal-actions{display:grid;grid-template-columns:1fr 1fr}
+  .location-modal-actions{display:grid;grid-template-columns:1fr;gap:8px}.location-modal-actions .location-nearby{justify-content:flex-start;margin:0;padding:3px 2px 2px}.location-modal-actions button{width:100%}
   .location-nearby{grid-column:1/-1}
   .location-modal-actions .secondary,.location-modal-actions .primary{width:100%}
   .location-attribution{font-size:7px}
