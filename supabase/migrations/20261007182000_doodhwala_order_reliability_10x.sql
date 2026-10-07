@@ -1,0 +1,3 @@
+-- See Supabase project migration: doodhwala_order_reliability_10x
+-- 10X order reliability: idempotency, server serviceability, concurrency-safe capacity,
+-- immutable order fields, actor-correct audit events, and secure status RPCs.
