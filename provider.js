@@ -1,5 +1,5 @@
 const STORAGE_KEY="doodhwala-provider-v1";
-const defaultProvider={providerName:"",ownerName:"",phone:"",type:"cow",area:"",city:"Ahmedabad",pin:"",radius:"5",from:"06:00",to:"09:00",maxOpenOrders:"25",maxDailyLitres:"250",acceptanceTimeoutMinutes:"10",products:[]};
+const defaultProvider={providerName:"",ownerName:"",phone:"",type:"cow",area:"",city:"Ahmedabad",pin:"",radius:"5",from:"06:00",to:"09:00",maxOpenOrders:"25",maxDailyLitres:"250",acceptanceTimeoutMinutes:"10",acceptingOrders:true,products:[]};
 let provider=Object.assign({},defaultProvider,JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));
 let currentStep=1;
 const $=id=>document.getElementById(id);
@@ -29,7 +29,37 @@ async function syncDeleteProduct(id){
 
 const onboarding=$("onboarding"),dashboard=$("dashboard"),toastEl=$("toast");
 function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(provider))}
-function toast(message){toastEl.textContent=message;toastEl.classList.add("show");clearTimeout(window.__providerToast);window.__providerToast=setTimeout(()=>toastEl.classList.remove("show"),1800)}
+function toast(message){toastEl.textContent=message;toastEl.classList.add("show");clearTimeout(window.__providerToast);window.__providerToast=setTimeout(()=>toastEl.classList.remove("show"),1800)}async function refreshStoreStatus(){
+ if(!window.Doodhwala?.configured)return;
+ try{
+  const {data:userData}=await Doodhwala.supabase.auth.getUser();const user=userData?.user;if(!user)return;
+  const {data,error}=await Doodhwala.supabase.from("provider_profiles").select("id,accepting_orders").eq("owner_user_id",user.id).limit(1).maybeSingle();
+  if(error||!data)return;
+  provider.backendProviderId=data.id;provider.acceptingOrders=data.accepting_orders!==false;save();renderStoreStatus();
+ }catch(err){console.warn("Store status load failed",err)}
+}
+function renderStoreStatus(){
+ const b=$("providerStoreToggle");if(!b)return;
+ b.hidden=!provider.backendProviderId;
+ const live=provider.acceptingOrders!==false;
+ b.textContent=live?"● Store live":"Ⅱ Store paused";
+ b.classList.toggle("paused",!live);
+ b.setAttribute("aria-pressed",String(live));
+ b.title=live?"Pause new customer orders":"Resume new customer orders";
+}
+async function toggleStoreStatus(){
+ if(!window.Doodhwala?.configured||!provider.backendProviderId){toast("Sign in to control live order intake.");return}
+ const next=provider.acceptingOrders===false;
+ const b=$("providerStoreToggle");if(b){b.disabled=true;b.textContent=next?"Resuming…":"Pausing…"}
+ try{
+  const {data:userData}=await Doodhwala.supabase.auth.getUser();const user=userData?.user;if(!user)throw new Error("Please sign in again.");
+  const {error}=await Doodhwala.supabase.from("provider_profiles").update({accepting_orders:next,updated_at:new Date().toISOString()}).eq("id",provider.backendProviderId).eq("owner_user_id",user.id);
+  if(error)throw error;
+  provider.acceptingOrders=next;save();renderStoreStatus();toast(next?"Store is live — new orders enabled":"Store paused — no new orders will be accepted");
+ }catch(err){toast(err.message||"Could not change store status");renderStoreStatus()}
+ finally{if(b)b.disabled=false}
+}
+
 function initials(name){return(name||"P").trim().split(/\s+/).map(x=>x[0]).slice(0,2).join("").toUpperCase()}
 function setStep(step){currentStep=step;document.querySelectorAll(".onboard-step").forEach(s=>s.classList.toggle("active",Number(s.dataset.step)===step));document.querySelectorAll("[data-step-indicator]").forEach(s=>s.classList.toggle("active",Number(s.dataset.stepIndicator)<=step))}
 function requiredForStep(step){
@@ -183,9 +213,10 @@ async function signOutProvider(event){
  toast("Signed out. Opening customer marketplace…");
  setTimeout(function(){window.location.replace("/Dudh-Wallah/?signedout=1")},350);
 }
+$("providerStoreToggle")?.addEventListener("click",toggleStoreStatus);
 $("providerSignout")?.addEventListener("click",signOutProvider);
 $("providerTopSignout")?.addEventListener("click",signOutProvider);
 $("mobileProfile").onclick=()=>showView("profile");
 $("resetProvider").onclick=()=>{if(!confirm("Reset the Phase 2 demo provider and return to onboarding?"))return;localStorage.removeItem(STORAGE_KEY);location.reload()};
-if(provider.providerName){onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();if(window.Doodhwala?.configured){Doodhwala.supabase.auth.getUser().then(function(r){if(r.data?.user){$("providerAuthLink").textContent="Account";$("providerAuthLink").href="/Dudh-Wallah/provider.html";syncProviderBackend().then(function(res){$("providerMode").textContent=res.ok?(res.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION"):"LOCAL DEMO"}).catch(function(){})}})}}else{$("providerName").value=provider.providerName||"";$("ownerName").value=provider.ownerName||"";$("phone").value=provider.phone||"";$("providerType").value=""}
+if(provider.providerName){onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();renderStoreStatus();if(window.Doodhwala?.configured){Doodhwala.supabase.auth.getUser().then(function(r){if(r.data?.user){$("providerAuthLink").textContent="Account";$("providerAuthLink").href="/Dudh-Wallah/provider.html";refreshStoreStatus().then(function(){return syncProviderBackend()}).then(function(res){$("providerMode").textContent=res.ok?(res.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION"):"LOCAL DEMO"}).catch(function(){})}})}}else{$("providerName").value=provider.providerName||"";$("ownerName").value=provider.ownerName||"";$("phone").value=provider.phone||"";$("providerType").value=""}
 window.addEventListener("keydown",e=>{if(e.key==="Escape"){const modal=document.querySelector(".product-modal");if(modal)modal.remove()}});
