@@ -15,6 +15,7 @@
     if (file === "plans.html") return "plans";
     if (file === "orders.html") return "orders";
     if (file === "checkout.html") return "cart";
+    if (file === "store.html" || file === "product.html") return "explore";
     if (file === "auth.html" || file === "provider.html" || file === "admin.html") return "";
     return "home";
   }
