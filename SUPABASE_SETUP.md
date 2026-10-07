@@ -1,14 +1,12 @@
 # Doodhwala Supabase setup
 
-## 1. Create the project
+## 1. Project status
 
-Create a new Supabase project for Doodhwala. Do not reuse the existing Learner's Guide project.
+The dedicated Doodhwala Supabase project is provisioned in `ap-south-1` and the marketplace migration has been applied successfully.
 
-The Phase 3/4 schema is in:
+The schema source remains:
 
-supabase/migrations/20261007_doodhwala_marketplace.sql
-
-Run that migration on the new Doodhwala project.
+`supabase/migrations/20261007_doodhwala_marketplace.sql`
 
 ## 2. Configure the browser client
 
@@ -98,4 +96,4 @@ The verification table is designed so provider self-registration cannot grant it
 
 ## Current limitation
 
-The repository is ready for a Doodhwala Supabase project, but that project has not yet been provisioned in this environment. Until its URL/key are configured, the customer UI intentionally stays on its demo provider dataset.
+The backend is live, but the production marketplace is intentionally gated by provider approval. There is not yet an admin approval UI, payments, recurring subscriptions, or live order-status notifications.
