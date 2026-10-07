@@ -14,6 +14,28 @@ document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>setMode(b.data
 setMode("signin");
 form.onsubmit=async function(e){e.preventDefault();if(!await ensureReady())return;submit.disabled=true;try{if(mode==="signup"){const name=fullName.value.trim();if(name.length<2)throw new Error("Enter your full name.");const {data,error}=await Doodhwala.supabase.auth.signUp({email:email.value.trim(),password:password.value,options:{data:{full_name:name},emailRedirectTo:productionUrl("/auth.html?return="+encodeURIComponent(getReturnPath()))}});if(error)throw error;if(data.session){showMessage("Account created. Redirecting…");location.href=getReturnPath()}else showMessage("Account created. Check your email to verify it. After verification, return here and sign in.");}else{const {error}=await Doodhwala.supabase.auth.signInWithPassword({email:email.value.trim(),password:password.value});if(error)throw error;showMessage("Signed in. Redirecting…");location.href=getReturnPath()}}catch(err){showMessage(authError(err),true)}finally{submit.disabled=false}};
 googleAuth.onclick=async()=>{if(isLocalOrigin()){showMessage("Google sign-in uses the secure production site. Opening Doodhwala…");location.href=productionGoogleUrl();return}if(!await ensureReady())return;googleAuth.disabled=true;try{const {error}=await Doodhwala.supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:productionUrl("/auth.html?return="+encodeURIComponent(getReturnPath()))}});if(error)throw error}catch(err){showMessage(authError(err),true);googleAuth.disabled=false}};
+async function handleExistingSession(){
+  if(!window.Doodhwala?.configured)return;
+  try{
+    const {data}=await Doodhwala.supabase.auth.getSession();
+    const session=data?.session;
+    if(!session?.user)return;
+    const returnPath=getReturnPath();
+    const {data:isAdmin}=await Doodhwala.supabase.rpc("is_current_user_admin");
+    if(isAdmin===true){
+      showMessage("Admin account verified. Opening Admin Panel…");
+      location.replace("/Dudh-Wallah/admin.html");
+      return;
+    }
+    if(returnPath!=="/Dudh-Wallah/"){
+      showMessage("Signed in. Redirecting…");
+      location.replace(returnPath);
+    }
+  }catch(err){
+    console.warn("Existing session check failed",err);
+  }
+}
+handleExistingSession();
 const autoGoogle=new URLSearchParams(location.search).get("oauth")==="google";
 if(autoGoogle&&!isLocalOrigin())setTimeout(()=>googleAuth.click(),80);
 forgotAuth.onclick=async()=>{if(!await ensureReady())return;const e=email.value.trim();if(!e){showMessage("Enter your email first, then tap Forgot password.",true);return}try{const {error}=await Doodhwala.supabase.auth.resetPasswordForEmail(e,{redirectTo:productionUrl("/auth.html?reset=1&return="+encodeURIComponent(getReturnPath()))});if(error)throw error;showMessage("Password reset email sent. Check your inbox.")}catch(err){showMessage(authError(err),true)}};
