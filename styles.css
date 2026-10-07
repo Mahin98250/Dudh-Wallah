@@ -206,6 +206,7 @@ header{
 }
 .milk-row strong{display:block;font-size:10px}
 .milk-row small{display:block;font-size:8px;color:var(--muted);margin-top:2px}
+.milk-actions{display:flex;align-items:center;gap:5px}.plan-add{background:#fff;border:1px solid #cddbcf;color:var(--green);border-radius:8px;padding:7px 8px;font-size:9px;font-weight:800;transition:background .18s,border-color .18s,transform .18s}.plan-add:hover{background:var(--green-wash);border-color:#b7cdbb}.plan-add:active{transform:scale(.96)}
 .add{
   background:var(--green);color:#fff;border-radius:8px;padding:7px 9px;
   font-size:9px;font-weight:800;transition:background .18s,transform .18s
