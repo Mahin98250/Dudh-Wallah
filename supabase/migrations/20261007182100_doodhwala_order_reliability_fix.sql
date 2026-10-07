@@ -1,0 +1,2 @@
+-- See Supabase project migration: doodhwala_order_reliability_fix
+-- Correct request hashing/idempotency verification in the secure order creator.
