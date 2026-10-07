@@ -118,6 +118,8 @@
     <section class="provider-view" id="view-orders">
       <div class="view-heading"><div><span class="eyebrow">ORDER CENTRE</span><h1>Orders</h1><p>Manage incoming customer orders and move them through your milk route.</p></div><button class="secondary" id="refreshOrders">↻ Refresh</button></div>
       <div id="providerOrderState" class="order-state">Checking your order queue…</div>
+      <div id="providerOrderKpis" class="order-kpis"></div>
+      <div class="order-toolbar"><div><b>Live queue</b><small id="orderQueueHint">Realtime updates are enabled.</small></div><select id="orderFilter" aria-label="Filter orders"><option value="all">All orders</option><option value="action">Needs action</option><option value="active">Active</option><option value="completed">Completed</option></select></div>
       <div id="providerOrders" class="provider-orders"></div>
     </section>
 
