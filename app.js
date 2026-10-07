@@ -3,6 +3,7 @@ let providers=[];
 let activeFilter="all";
 let query="";
 let browseMode="all";
+let sortMode="closest";
 let dataState="loading";
 let favorites=[];
 let cart={};
@@ -23,12 +24,23 @@ function savedLocationLabel(){return readLocation()?"Near you":"Choose location"
 
 function filtered(){
  const q=query.toLowerCase().trim();
- return providers.filter(p=>{
+ const list=providers.filter(p=>{
    const typeOk=activeFilter==="all"||(activeFilter==="subscription"?p.subscription:p.type===activeFilter);
    const savedOk=browseMode!=="saved"||favorites.includes(p.id);
    const text=[p.name,p.area,p.tag,p.city||""].concat((p.milks||[]).flat()).join(" ").toLowerCase();
    return typeOk&&savedOk&&(!q||text.includes(q));
  });
+ list.sort((a,b)=>{
+   if(sortMode==="rating") return Number(b.rating||0)-Number(a.rating||0);
+   if(sortMode==="price"){
+     const pa=Math.min(...(a.milks||[]).map(m=>Number(String(m[1]).replace(/[^0-9.]/g,""))||Infinity));
+     const pb=Math.min(...(b.milks||[]).map(m=>Number(String(m[1]).replace(/[^0-9.]/g,""))||Infinity));
+     return pa-pb;
+   }
+   const da=a.distanceKm==null?Infinity:Number(a.distanceKm),db=b.distanceKm==null?Infinity:Number(b.distanceKm);
+   return da-db;
+ });
+ return list;
 }
 
 function render(){
@@ -111,6 +123,7 @@ window.__doodhwalaNavigate=navigateHomeView;
 document.querySelectorAll("#chips button").forEach(b=>b.onclick=()=>filter(b.dataset.filter));
 document.querySelectorAll(".quick button").forEach(b=>b.onclick=()=>{filter(b.dataset.filter);$("providers")?.scrollIntoView({behavior:"smooth"})});
 $("search")?.addEventListener("input",e=>{query=e.target.value;render()});
+$("providerSort")?.addEventListener("change",e=>{sortMode=e.target.value;const hint=$("discoveryHint");if(hint)hint.textContent=sortMode==="rating"?"Highest rated providers first":sortMode==="price"?"Lowest milk price first":"Closest providers first";render()});
 $("explore")?.addEventListener("click",()=>navigateHomeView("providers"));
 $("filterButton")?.addEventListener("click",()=>$("chips")?.scrollIntoView({behavior:"smooth",block:"center"}));
 
