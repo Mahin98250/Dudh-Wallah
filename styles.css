@@ -423,3 +423,27 @@ footer{padding:0 58px 95px;font-size:9px;color:#859087;display:flex;justify-cont
   .location-modal-actions .secondary,.location-modal-actions .primary{width:100%}
   .location-attribution{font-size:7px}
 }
+
+/* Shared customer mobile navigation — six persistent tabs */
+.customer-bottom-nav{display:none}
+@media(max-width:760px){
+  body.has-customer-nav{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+  .customer-bottom-nav{position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:60;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));height:70px;padding:6px 5px;background:rgba(255,255,255,.94);border:1px solid rgba(208,219,211,.96);border-radius:21px;box-shadow:0 14px 34px rgba(20,45,29,.14),0 2px 5px rgba(20,45,29,.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+  .customer-nav-item{position:relative;min-width:0;height:58px;padding:4px 2px;border:0;background:transparent;color:#7b857e;border-radius:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:color .18s ease,background .18s ease,transform .18s ease}
+  .customer-nav-item svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:transform .18s ease}
+  .customer-nav-item span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:7.5px;line-height:1;font-weight:700;letter-spacing:.01em}
+  .customer-nav-item.active{color:var(--green);background:var(--green-soft)}
+  .customer-nav-item.active svg{transform:translateY(-.5px);stroke-width:2.1}
+  .customer-nav-item:active{transform:scale(.95)}
+  .customer-nav-item.is-cart{margin:2px 1px;color:#fff;background:var(--ink);box-shadow:0 7px 16px rgba(23,34,26,.14)}
+  .customer-nav-item.is-cart.active{background:var(--green);color:#fff}
+  .customer-nav-item.is-cart svg{width:21px;height:21px}
+  .customer-nav-badge{position:absolute;top:4px;right:17%;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#e7b95e;color:#392d13;font-size:7px!important;line-height:18px!important;text-align:center;font-weight:900!important;display:none!important;box-shadow:0 2px 7px rgba(0,0,0,.12)}
+  .customer-nav-badge.show{display:block!important}
+}
+@media(max-width:360px){
+  .customer-bottom-nav{left:5px;right:5px}
+  .customer-nav-item{height:58px;padding-left:0;padding-right:0}
+  .customer-nav-item svg{width:19px;height:19px}
+  .customer-nav-item span{font-size:7px}
+}
