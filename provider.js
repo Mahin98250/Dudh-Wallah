@@ -139,8 +139,25 @@ function setupProviderRouteRealtime(user,providerId){
  if(providerId){
    channel.on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions",filter:"provider_id=eq."+providerId},refresh);
  }
- channel.subscribe();
  window.__doodhwalaProviderRouteChannel=channel;
+ channel.subscribe(function(status){
+   if(status==="SUBSCRIBED"){
+     window.__providerRouteReconnectAttempt=0;
+     return;
+   }
+   if(!["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(status))return;
+   const attempt=Math.min(6,Number(window.__providerRouteReconnectAttempt||0)+1);
+   window.__providerRouteReconnectAttempt=attempt;
+   clearTimeout(window.__providerRouteReconnectTimer);
+   const delay=Math.min(30000,1000*Math.pow(2,attempt-1));
+   window.__providerRouteReconnectTimer=setTimeout(function(){
+     const stale=window.__doodhwalaProviderRouteChannel;
+     window.__doodhwalaProviderRouteChannel=null;
+     try{ if(stale)Doodhwala.supabase.removeChannel(stale); }catch(_){}
+     setupProviderRouteRealtime(user,providerId);
+     loadProviderRoute(routeDate).catch(function(err){console.warn("Provider route reconnect refresh failed",err)});
+   },delay);
+ });
 }
 
 async function loadProviderDispatchBoard(dateValue=routeDate){
