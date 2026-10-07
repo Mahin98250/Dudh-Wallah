@@ -8,6 +8,8 @@
   const accuracyEl = document.getElementById("locationAccuracy");
   const nearbyEl = document.getElementById("locationNearbyCount");
   const labelEl = document.getElementById("locationLabel");
+  const heroLabelEl = document.getElementById("heroLocationLabel");
+  const heroButton = document.getElementById("locationHero");
   const sidebarButton = document.getElementById("locationBtn");
   const closeButton = document.getElementById("locationModalClose");
   const useMeButton = document.getElementById("locationUseMe");
@@ -41,6 +43,7 @@
   function setPageLocationLabel(label) {
     const value = label || "Near me";
     setText(labelEl, value);
+    setText(heroLabelEl, value === "Near me" ? "Near you" : value);
     const sideText = sidebarButton?.querySelector("b");
     if (sideText) sideText.textContent = value;
   }
@@ -185,6 +188,10 @@
   }
 
   sidebarButton?.addEventListener('click', open);
+  heroButton?.addEventListener('click', open);
+  heroButton?.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); }
+  });
   document.getElementById('locationTop')?.addEventListener('click', open);
   closeButton?.addEventListener('click', close);
   doneButton?.addEventListener('click', close);
