@@ -121,7 +121,25 @@ async function loadProviderOrders(){
  const orders=result.data||[];state.textContent=orders.length?orders.length+" order"+(orders.length===1?"":"s")+" in your queue":"No live orders yet";
  if(!orders.length){list.innerHTML='<div class="order-empty"><b>Your order queue is clear.</b>New customer orders will appear here automatically after checkout.</div>';return}
  list.innerHTML=orders.map(function(o){return '<article class="provider-order"><div class="provider-order-head"><div><div class="provider-order-id">Order '+escapeHtml(o.id)+'</div><div class="provider-order-time">'+escapeHtml(orderTime(o.created_at))+'</div></div><span class="order-status '+escapeHtml(o.status)+'">'+escapeHtml(orderStatusLabel(o.status))+'</span></div><div class="provider-order-grid"><div class="order-panel"><small>Customer</small><b>'+escapeHtml(o.delivery_recipient_name||"Customer")+'</b><span>'+escapeHtml(o.delivery_phone||"No phone")+'</span></div><div class="order-panel"><small>Delivery</small><b>'+escapeHtml(o.delivery_address_line||"Address unavailable")+'</b><span>'+escapeHtml([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", "))+'</span></div></div><div class="order-items">'+(o.order_items||[]).map(function(i){return '<div class="order-item"><span>'+escapeHtml(i.product_name_snapshot)+' × '+i.quantity+'</span><b>'+orderMoney(i.line_total)+'</b></div>'}).join("")+'</div><div class="provider-order-head" style="margin-top:14px"><b>Total '+orderMoney(o.total)+'</b><span>'+escapeHtml(o.customer_note||"No customer note")+'</span></div><div class="order-actions">'+orderActions(o)+'</div></article>'}).join("");
- list.querySelectorAll("[data-order-status]").forEach(function(button){button.onclick=async function(){button.disabled=true;const status=button.dataset.orderStatus;let reason=null;if(status==="rejected"||status==="cancelled"){reason=prompt(status==="rejected"?"Why are you declining this order?":"Why are you cancelling this order?")||"Provider action"}const result=await Doodhwala.supabase.from("orders").update({status:status,status_reason:reason,updated_at:new Date().toISOString()}).eq("id",button.dataset.orderId).eq("provider_owner_id",user.id).select("id,status").single();if(result.error){toast(result.error.message);button.disabled=false;return}toast("Order updated");loadProviderOrders()}})
+ list.querySelectorAll("[data-order-status]").forEach(function(button){
+  button.onclick=async function(){
+    button.disabled=true;
+    const status=button.dataset.orderStatus;
+    let reason=null;
+    if(status==="rejected"||status==="cancelled"){
+      reason=(prompt(status==="rejected"?"Why are you declining this order?":"Why are you cancelling this order?")||"").trim().slice(0,300);
+      if(!reason){button.disabled=false;toast("A reason is required.");return}
+    }
+    const result=await Doodhwala.supabase.rpc("provider_update_order_status",{p_order_id:button.dataset.orderId,p_new_status:status,p_reason:reason});
+    if(result.error){
+      const msg=String(result.error.message||"");
+      const friendly=msg.includes("invalid_order_status_transition")?"This order has already changed. Refresh the queue.":msg.includes("reason_required")?"Add a reason before continuing.":msg;
+      toast(friendly);button.disabled=false;loadProviderOrders();return;
+    }
+    toast(status==="delivered"?"Order marked delivered":"Order updated");
+    loadProviderOrders();
+  }
+})
 }
 $("refreshOrders")?.addEventListener("click",loadProviderOrders);
 async function signOutProvider(event){
