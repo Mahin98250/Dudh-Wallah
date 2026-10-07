@@ -182,6 +182,8 @@ grant execute on function public.pause_milk_subscription(uuid,date) to authentic
 revoke execute on function public.update_milk_subscription(uuid,numeric,time,uuid) from public,anon;
 grant execute on function public.update_milk_subscription(uuid,numeric,time,uuid) to authenticated;
 
+grant usage on schema private to authenticated;
+
 -- Provider-only recurring route projection. This deliberately exposes delivery
 -- address/contact only to the provider who owns the milk route.
 create or replace function private.get_provider_delivery_route(p_delivery_date date default current_date)
