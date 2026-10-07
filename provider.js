@@ -95,7 +95,7 @@ async function loadProviderOrders(){
  if(!user){state.textContent="Sign in to manage live orders.";list.innerHTML="";return}
  const profile=await Doodhwala.supabase.from("provider_profiles").select("id").eq("owner_user_id",user.id).limit(1).maybeSingle();
  if(profile.error){state.textContent=profile.error.message;return}
- if(!profile.data){state.textContent="Complete provider onboarding first.";list.innerHTML="";return}
+ if(!profile.data){state.textContent="Complete provider onboarding first.";list.innerHTML="";return}if(!window.__doodhwalaProviderOrdersChannel){window.__doodhwalaProviderOrdersChannel=Doodhwala.supabase.channel("provider-orders-"+user.id).on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"provider_owner_id=eq."+user.id},function(){loadProviderOrders()}).subscribe()}
  const result=await Doodhwala.supabase.from("orders").select("id,status,status_reason,subtotal,delivery_fee,total,customer_note,created_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,order_items(product_name_snapshot,quantity,unit_price,line_total)").eq("provider_id",profile.data.id).order("created_at",{ascending:false}).limit(50);
  if(result.error){state.textContent=result.error.message;list.innerHTML="";return}
  const orders=result.data||[];state.textContent=orders.length?orders.length+" order"+(orders.length===1?"":"s")+" in your queue":"No live orders yet";
