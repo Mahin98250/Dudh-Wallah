@@ -3,6 +3,38 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function money(v){return "₹"+Number(v||0).toLocaleString("en-IN",{maximumFractionDigits:2})}
 function when(v){try{return new Intl.DateTimeFormat("en-IN",{dateStyle:"medium",timeStyle:"short"}).format(new Date(v))}catch(e){return v||""}}
 function statusLabel(v){const labels={placed:"Order placed",accepted:"Accepted",preparing:"Packing your milk",ready:"Ready for delivery",out_for_delivery:"Out for delivery",delivered:"Delivered",rejected:"Declined",cancelled:"Cancelled"};return labels[v]||String(v||"placed").replace(/_/g," ")}
+function countdownText(target){
+ const ms=new Date(target).getTime()-Date.now();
+ if(!Number.isFinite(ms))return "";
+ const min=Math.max(0,Math.floor(ms/60000)),sec=Math.max(0,Math.floor((ms%60000)/1000));
+ return min+"m "+String(sec).padStart(2,"0")+"s";
+}
+function deliveryPromise(o){
+ if(o.status==="placed"&&o.acceptance_deadline_at){
+   return '<div class="order-promise waiting"><span>⏳ Awaiting provider</span><b data-order-countdown="'+esc(o.acceptance_deadline_at)+'">Respond by '+esc(countdownText(o.acceptance_deadline_at))+'</b></div>';
+ }
+ if(!o.promised_delivery_at)return "";
+ const now=Date.now(),promise=new Date(o.promised_delivery_at).getTime(),late=o.late_after_at?new Date(o.late_after_at).getTime():promise+10*60000;
+ if(o.status==="delivered"){
+   return '<div class="order-promise delivered"><span>✓ Delivered</span><b>'+esc(when(o.promised_delivery_at))+'</b></div>';
+ }
+ if(now>late){
+   return '<div class="order-promise late"><span>⚠ Delivery running late</span><b>Updated ETA pending</b></div>';
+ }
+ const range=o.estimated_delivery_min_minutes&&o.estimated_delivery_max_minutes
+   ? o.estimated_delivery_min_minutes+"–"+o.estimated_delivery_max_minutes+" min":"Live ETA";
+ return '<div class="order-promise live"><span>⌖ Estimated delivery</span><b>'+esc(range)+' · '+esc(countdownText(o.promised_delivery_at))+' left</b></div>';
+}
+function refreshOrderPromises(){
+ document.querySelectorAll("[data-order-countdown]").forEach(function(el){
+   const t=el.dataset.orderCountdown;const left=countdownText(t);
+   el.textContent=(new Date(t).getTime()>Date.now()?"Respond by ":"Response window expired · ")+left;
+ });
+ document.querySelectorAll("[data-order-promise-target]").forEach(function(el){
+   const t=el.dataset.orderPromiseTarget;const left=countdownText(t);
+   el.querySelector("[data-promise-left]")?.replaceChildren(document.createTextNode(new Date(t).getTime()>Date.now()?left+" left":"ETA window passed"));
+ });
+}
 function cancelReason(){return (prompt("Why are you cancelling this order?")||"").trim().slice(0,300)}
 async function cancelOrder(id,button){
  if(!confirm("Cancel this milk order? This is available only before packing starts."))return;
@@ -17,7 +49,7 @@ async function loadOrders(){
  const {data:userData}=await Doodhwala.supabase.auth.getUser(),user=userData?.user;
  if(!user){$("ordersState").textContent="";$("ordersGate").classList.remove("hidden");$("ordersList").classList.add("hidden");return}
  $("ordersGate").classList.add("hidden");$("ordersList").classList.remove("hidden");$("ordersState").textContent="Loading your latest orders…";if(!window.__doodhwalaOrdersChannel){window.__doodhwalaOrdersChannel=Doodhwala.supabase.channel("customer-orders-"+user.id).on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"customer_id=eq."+user.id},function(){loadOrders()}).subscribe()}
- const result=await Doodhwala.supabase.from("orders").select("id,status,subtotal,delivery_fee,total,customer_note,created_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,provider_id,provider_profiles(display_name,area_name,city),order_items(product_name_snapshot,quantity,unit_price,line_total)").eq("customer_id",user.id).order("created_at",{ascending:false}).limit(50);
+ const result=await Doodhwala.supabase.from("orders").select("id,status,subtotal,delivery_fee,total,customer_note,created_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,acceptance_deadline_at,estimated_delivery_min_minutes,estimated_delivery_max_minutes,promised_delivery_at,late_after_at,provider_id,provider_profiles(display_name,area_name,city),order_items(product_name_snapshot,quantity,unit_price,line_total)").eq("customer_id",user.id).order("created_at",{ascending:false}).limit(50);
  if(result.error){$("ordersState").textContent=result.error.message;return}
  const orders=result.data||[];const eventResult=orders.length?await Doodhwala.supabase.from("order_status_events").select("order_id,from_status,to_status,reason,created_at").in("order_id",orders.map(o=>o.id)).order("created_at",{ascending:true}):{data:[]};
  const eventsBy={};(eventResult.data||[]).forEach(e=>(eventsBy[e.order_id]??=[]).push(e));
@@ -27,10 +59,10 @@ async function loadOrders(){
   const p=o.provider_profiles,events=eventsBy[o.id]||[];
   const timeline='<div class="order-timeline">'+events.map(function(e){return '<div class="timeline-row"><span class="timeline-dot"></span><div><b>'+esc(statusLabel(e.to_status))+'</b><small>'+esc(when(e.created_at))+(e.reason?' · '+esc(e.reason):"")+'</small></div></div>'}).join("")+'</div>';
   const action=(o.status==="placed"||o.status==="accepted")?'<div class="order-actions"><button class="order-cancel" data-cancel-order="'+o.id+'">Cancel order</button></div>':"";
-  return '<article class="order-card"><div class="order-card-head"><div><div class="order-provider">'+esc(p?.display_name||"Local milk provider")+'</div><div class="order-meta">Order '+esc(o.id)+' · '+esc(when(o.created_at))+'</div></div><span class="customer-status '+esc(o.status)+'">'+esc(statusLabel(o.status))+'</span></div><div class="customer-items">'+(o.order_items||[]).map(function(i){return '<div class="customer-item"><span>'+esc(i.product_name_snapshot)+' × '+i.quantity+' L</span><b>'+money(i.line_total)+'</b></div>'}).join("")+'</div><div class="customer-total"><span>Total</span><b>'+money(o.total)+'</b></div><div class="customer-address"><b>Delivery</b><br>'+esc(o.delivery_recipient_name||"")+' · '+esc(o.delivery_phone||"")+'<br>'+esc(o.delivery_address_line||"")+', '+esc([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", "))+'</div>'+(o.customer_note?'<div class="customer-note">Note: '+esc(o.customer_note)+'</div>':"")+timeline+action+'</article>';
+  return '<article class="order-card"><div class="order-card-head"><div><div class="order-provider">'+esc(p?.display_name||"Local milk provider")+'</div><div class="order-meta">Order '+esc(o.id)+' · '+esc(when(o.created_at))+'</div></div><span class="customer-status '+esc(o.status)+'">'+esc(statusLabel(o.status))+'</span></div><div class="customer-items">'+(o.order_items||[]).map(function(i){return '<div class="customer-item"><span>'+esc(i.product_name_snapshot)+' × '+i.quantity+' L</span><b>'+money(i.line_total)+'</b></div>'}).join("")+'</div><div class="customer-total"><span>Total</span><b>'+money(o.total)+'</b></div><div class="customer-address"><b>Delivery</b><br>'+esc(o.delivery_recipient_name||"")+' · '+esc(o.delivery_phone||"")+'<br>'+esc(o.delivery_address_line||"")+', '+esc([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", "))+'</div>'+deliveryPromise(o)+(o.customer_note?'<div class="customer-note">Note: '+esc(o.customer_note)+'</div>':"")+timeline+action+'</article>';
  }).join("");
  $("ordersList").querySelectorAll("[data-cancel-order]").forEach(function(button){
    button.addEventListener("click",function(){cancelOrder(button.dataset.cancelOrder,button)});
  });
 }
-$("refreshOrders").onclick=loadOrders;loadOrders();
+$("refreshOrders").onclick=loadOrders;clearInterval(window.__orderPromiseTimer);window.__orderPromiseTimer=setInterval(refreshOrderPromises,1000);loadOrders();
