@@ -83,7 +83,7 @@
     <header class="provider-topbar">
       <div class="provider-mobile-brand"><img src="/assets/logo.svg" alt=""><b>Doodhwala</b></div>
       <div class="provider-top-title"><span class="eyebrow">PROVIDER CONSOLE</span><h2 id="topProviderName">Provider dashboard</h2></div>
-      <div class="provider-top-actions"><span class="demo-pill">LOCAL DEMO</span><button id="mobileProfile">◎</button></div>
+      <div class="provider-top-actions"><span class="demo-pill" id="providerMode">LOCAL DEMO</span><a class="provider-auth-link" id="providerAuthLink" href="/auth.html?return=/provider.html">Sign in</a><button id="mobileProfile">◎</button></div>
     </header>
 
     <section class="provider-view active" id="view-overview">
@@ -123,6 +123,6 @@
   </main>
   <nav class="provider-mobile-nav"><button class="active" data-view="overview">⌂<small>Home</small></button><button data-view="products">🥛<small>Milk</small></button><button data-view="orders">◷<small>Orders</small></button><button data-view="service">⌖<small>Area</small></button><button data-view="profile">◎<small>Profile</small></button></nav>
 </div>
-<script src="/provider.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.min.js"></script><script src="/supabase-config.js"></script><script src="/supabase-client.js"></script><script src="/provider.js"></script>
 </body>
 </html>
