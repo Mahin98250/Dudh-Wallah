@@ -23,7 +23,8 @@ function normalizeProductIds(){
 
 const defaultProvider={providerName:"",ownerName:"",phone:"",type:"cow",area:"",city:"Ahmedabad",pin:"",radius:"5",from:"06:00",to:"09:00",maxOpenOrders:"25",maxDailyLitres:"250",acceptanceTimeoutMinutes:"10",acceptingOrders:true,products:[]};
 let provider=Object.assign({},defaultProvider,JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));
-let currentStep=1;\nnormalizeProductIds();
+let currentStep=1;
+normalizeProductIds();
 const $=id=>document.getElementById(id);
 async function getCurrentLocation(){
  return await new Promise(function(resolve){if(!navigator.geolocation){resolve(null);return}navigator.geolocation.getCurrentPosition(function(pos){resolve({latitude:pos.coords.latitude,longitude:pos.coords.longitude})},function(){resolve(null)},{enableHighAccuracy:false,timeout:7000,maximumAge:600000})})
