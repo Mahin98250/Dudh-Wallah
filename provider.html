@@ -72,6 +72,7 @@
       <button class="active" data-view="overview">⌂ <span>Overview</span></button>
       <button data-view="products">🥛 <span>Milk catalogue</span></button>
       <button data-view="orders">◷ <span>Orders</span></button>
+      <button data-view="route">☀ <span>Today route</span></button>
       <button data-view="service">⌖ <span>Service area</span></button>
       <button data-view="profile">◎ <span>Profile & trust</span></button>
     </nav>
@@ -106,6 +107,13 @@
       <div id="productTable" class="product-table"></div>
     </section>
 
+    <section class="provider-view" id="view-route">
+      <div class="view-heading"><div><span class="eyebrow">DAILY ROUTE</span><h1>Today's milk run</h1><p>Recurring deliveries are grouped here by customer, time and locality. Orders created from the plan stay linked to the same route.</p></div><div class="route-date-actions"><button class="secondary" id="routePrev" type="button">←</button><button class="secondary route-today" id="routeToday" type="button">Today</button><button class="secondary" id="routeNext" type="button">→</button></div></div>
+      <div class="route-date-line"><b id="routeDate">Today</b><span id="routeSummary">Loading route…</span></div>
+      <div class="route-kpis" id="routeKpis"></div>
+      <div id="routeList" class="route-list"></div>
+    </section>
+
     <section class="provider-view" id="view-orders">
       <div class="view-heading"><div><span class="eyebrow">ORDER CENTRE</span><h1>Orders</h1><p>Manage incoming customer orders and move them through your milk route.</p></div><button class="secondary" id="refreshOrders">↻ Refresh</button></div>
       <div id="providerOrderState" class="order-state">Checking your order queue…</div>
@@ -122,7 +130,7 @@
       <div class="profile-layout"><article class="panel"><div class="form-grid"><label>Provider / dairy name<input id="dashProviderName"></label><label>Owner name<input id="dashOwnerName"></label><label>Mobile number<input id="dashPhone"></label><label>Primary milk type<select id="dashType"><option value="cow">Cow milk</option><option value="buffalo">Buffalo milk</option><option value="a2">A2 milk</option><option value="mixed">Mixed local milk</option></select></label></div></article><article class="trust-card"><span class="trust-icon">✓</span><h3>Verification centre</h3><p>Backend verification will collect identity/business evidence and create a verified badge only after review.</p><div class="trust-row"><span>Profile information</span><b id="trustProfile">Pending</b></div><div class="trust-row"><span>Identity documents</span><b>Next backend phase</b></div><div class="trust-row"><span>Marketplace approval</span><b>Pending review</b></div></article></div>
     </section>
   </main>
-  <nav class="provider-mobile-nav"><button class="active" data-view="overview">⌂<small>Home</small></button><button data-view="products">🥛<small>Milk</small></button><button data-view="orders">◷<small>Orders</small></button><button data-view="service">⌖<small>Area</small></button><button data-view="profile">◎<small>Profile</small></button></nav>
+  <nav class="provider-mobile-nav"><button class="active" data-view="overview">⌂<small>Home</small></button><button data-view="products">🥛<small>Milk</small></button><button data-view="orders">◷<small>Orders</small></button><button data-view="route">☀<small>Route</small></button><button data-view="service">⌖<small>Area</small></button><button data-view="profile">◎<small>Profile</small></button></nav>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.min.js"></script><script src="/Dudh-Wallah/supabase-config.js"></script><script src="/Dudh-Wallah/supabase-client.js"></script><script src="/Dudh-Wallah/provider.js"></script>
 </body>
