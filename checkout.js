@@ -22,7 +22,7 @@ function fillAddress(a){$("recipient").value=a.recipient_name||sessionUser?.user
 $("addressForm").onsubmit=async e=>{
  e.preventDefault();if(!Doodhwala.configured||!sessionUser)return;
  const row={user_id:sessionUser.id,label:"Home",recipient_name:$("recipient").value.trim(),phone:$("addressPhone").value.replace(/\D/g,""),address_line:$("addressLine").value.trim(),area_name:$("addressArea").value.trim(),city:$("addressCity").value.trim(),pin_code:$("addressPin").value.trim(),is_default:$("defaultAddress").checked};
- if(!/^\\d{10}$/.test(row.phone)||!/^\\d{6}$/.test(row.pin_code)){showError("Enter a valid 10-digit phone and 6-digit PIN.");return}
+ if(!/^\d{10}$/.test(row.phone)||!/^\d{6}$/.test(row.pin_code)){showError("Enter a valid 10-digit phone and 6-digit PIN.");return}
  const {data,error}=await Doodhwala.supabase.from("addresses").insert(row).select().single();
  if(error){showError(error.message);return}
  window.__addressId=data.id;$("checkoutState").textContent="Address saved. Ready to place the order.";$("checkoutState").style.color="";
