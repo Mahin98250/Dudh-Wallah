@@ -121,14 +121,14 @@ returns boolean
 language sql
 security definer
 set search_path = public, private, pg_temp
-as $
+as $$
   select exists (
     select 1
     from public.provider_verifications
     where provider_id = p_provider_id
       and status = 'approved'
   );
-$;
+$$;
 
 revoke all on function private.is_approved_provider(uuid) from public, anon, authenticated;
 
