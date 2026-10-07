@@ -3,6 +3,30 @@ const defaultProvider={providerName:"",ownerName:"",phone:"",type:"cow",area:"",
 let provider=Object.assign({},defaultProvider,JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));
 let currentStep=1;
 const $=id=>document.getElementById(id);
+async function getCurrentLocation(){
+ return await new Promise(function(resolve){if(!navigator.geolocation){resolve(null);return}navigator.geolocation.getCurrentPosition(function(pos){resolve({latitude:pos.coords.latitude,longitude:pos.coords.longitude})},function(){resolve(null)},{enableHighAccuracy:false,timeout:7000,maximumAge:600000})})
+}
+async function syncProviderBackend(){
+ if(!window.Doodhwala?.configured)return {ok:false,reason:"not_configured"};
+ const {data:userData}=await Doodhwala.supabase.auth.getUser();const user=userData?.user;
+ if(!user)return {ok:false,reason:"not_signed_in"};
+ const payload={owner_user_id:user.id,display_name:provider.providerName||"Local milk provider",owner_name:provider.ownerName||"Provider",phone:provider.phone||"",primary_milk_type:provider.type||"mixed",area_name:provider.area||"Local area",city:provider.city||"Ahmedabad",pin_code:provider.pin||"000000",service_radius_km:Number(provider.radius||5),delivery_from:provider.from||null,delivery_to:provider.to||null,is_active:true};
+ if(!/^\d{6}$/.test(payload.pin_code)){return {ok:false,reason:"invalid_pin"}}
+ const up=await Doodhwala.supabase.from("provider_profiles").upsert(payload,{onConflict:"owner_user_id"}).select("id").single();
+ if(up.error)throw up.error;
+ provider.backendProviderId=up.data.id;
+ let coords=provider.latitude&&provider.longitude?{latitude:provider.latitude,longitude:provider.longitude}:await getCurrentLocation();
+ if(coords){provider.latitude=coords.latitude;provider.longitude=coords.longitude;const area=await Doodhwala.supabase.from("provider_service_areas").upsert({provider_id:provider.backendProviderId,label:provider.area||"Local route",latitude:coords.latitude,longitude:coords.longitude,service_radius_km:Number(provider.radius||5)},{onConflict:"provider_id"});if(area.error)throw area.error}
+ for(const p of provider.products){const row={id:p.id,provider_id:provider.backendProviderId,name:p.name,milk_type:p.type||provider.type||"mixed",price_per_litre:Number(p.price||0),unit_label:p.unit||"1 L",stock:Boolean(p.stock),daily_available:Boolean(p.days),is_active:true};const result=await Doodhwala.supabase.from("milk_products").upsert(row,{onConflict:"id"});if(result.error)throw result.error}
+ save();
+ return {ok:true,hasLocation:Boolean(coords)};
+}
+async function syncDeleteProduct(id){
+ if(!window.Doodhwala?.configured||!provider.backendProviderId)return;
+ const {data:userData}=await Doodhwala.supabase.auth.getUser();if(!userData?.user)return;
+ await Doodhwala.supabase.from("milk_products").delete().eq("id",id).eq("provider_id",provider.backendProviderId);
+}
+
 const onboarding=$("onboarding"),dashboard=$("dashboard"),toastEl=$("toast");
 function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(provider))}
 function toast(message){toastEl.textContent=message;toastEl.classList.add("show");clearTimeout(window.__providerToast);window.__providerToast=setTimeout(()=>toastEl.classList.remove("show"),1800)}
@@ -20,7 +44,7 @@ $("finishOnboarding").onclick=()=>{
  readOnboarding();const name=$("firstMilkName").value.trim()||"Fresh milk",price=Number($("firstMilkPrice").value);
  if(!price||price<=0){toast("Enter a valid milk price");return}
  provider.products=[{id:crypto.randomUUID?.()||String(Date.now()),name,price,stock:$("firstMilkStock").value==="in",days:$("firstMilkDays").value==="yes",type:provider.type,unit:"1 L"}];
- save();onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();toast("Provider dashboard created")
+ save();onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();syncProviderBackend().then(function(result){if(result.ok){$("providerMode").textContent=result.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION";$("providerAuthLink").textContent="Account";$("providerAuthLink").href="/provider.html";toast(result.hasLocation?"Provider saved — pending verification":"Provider saved; location still needed")}else if(result.reason==="not_signed_in"){toast("Demo saved. Sign in to publish your provider")}}).catch(function(err){console.error(err);toast("Provider saved locally; backend sync failed")})
 };
 function profilePercent(){const fields=[provider.providerName,provider.ownerName,provider.phone,provider.type,provider.area,provider.city,provider.pin,provider.radius,provider.from,provider.to];return Math.round(fields.filter(Boolean).length/fields.length*100)}
 function hydrateDashboard(){
@@ -52,14 +76,14 @@ function openProductEditor(id){
  const close=()=>modal.remove();modal.querySelectorAll("[data-close]").forEach(x=>x.onclick=close);
  $("saveProductModal").onclick=()=>{const name=$("mName").value.trim(),price=Number($("mPrice").value);if(!name||!price||price<=0){toast("Enter a product name and valid price");return}const data={name,price,type:$("mType").value,stock:$("mStock").value==="true",days:$("mDays").checked,unit:"1 L"};if(existing)Object.assign(existing,data);else provider.products.push({id:crypto.randomUUID?.()||String(Date.now()+Math.random()),...data});save();renderProducts();hydrateDashboard();close();toast(existing?"Product updated":"Milk added to catalogue")}
 }
-function toggleProduct(id){const p=provider.products.find(x=>x.id===id);if(!p)return;p.stock=!p.stock;save();renderProducts();hydrateDashboard();toast(p.stock?"Product activated":"Product paused")}
-function deleteProduct(id){const p=provider.products.find(x=>x.id===id);if(!p)return;if(!confirm("Delete "+p.name+" from your catalogue?"))return;provider.products=provider.products.filter(x=>x.id!==id);save();renderProducts();hydrateDashboard();toast("Product deleted")}
+function toggleProduct(id){const p=provider.products.find(x=>x.id===id);if(!p)return;p.stock=!p.stock;save();renderProducts();hydrateDashboard();syncProviderBackend().catch(function(err){console.error(err)});toast(p.stock?"Product activated":"Product paused")}
+function deleteProduct(id){const p=provider.products.find(x=>x.id===id);if(!p)return;if(!confirm("Delete "+p.name+" from your catalogue?"))return;provider.products=provider.products.filter(x=>x.id!==id);save();renderProducts();hydrateDashboard();syncDeleteProduct(id).catch(function(err){console.error(err)});toast("Product deleted")}
 $("addProduct").onclick=()=>openProductEditor();$("productSearch").oninput=renderProducts;$("stockFilter").onchange=renderProducts;
 function fillService(){$("dashBaseArea").value=provider.area||"";$("dashCity").value=provider.city||"";$("dashPin").value=provider.pin||"";$("dashRadius").value=provider.radius||"5";$("dashFrom").value=provider.from||"06:00";$("dashTo").value=provider.to||"09:00";$("mapSummary").textContent=(provider.area||"Locality")+", "+(provider.radius||"5")+" km radius"}
-$("saveService").onclick=()=>{if(!$("dashBaseArea").value.trim()||!/^\d{6}$/.test($("dashPin").value.trim())){toast("Enter locality and valid 6-digit PIN");return}provider.area=$("dashBaseArea").value.trim();provider.city=$("dashCity").value.trim()||"Ahmedabad";provider.pin=$("dashPin").value.trim();provider.radius=$("dashRadius").value;provider.from=$("dashFrom").value;provider.to=$("dashTo").value;save();hydrateDashboard();toast("Delivery area saved")};
+$("saveService").onclick=()=>{if(!$("dashBaseArea").value.trim()||!/^\d{6}$/.test($("dashPin").value.trim())){toast("Enter locality and valid 6-digit PIN");return}provider.area=$("dashBaseArea").value.trim();provider.city=$("dashCity").value.trim()||"Ahmedabad";provider.pin=$("dashPin").value.trim();provider.radius=$("dashRadius").value;provider.from=$("dashFrom").value;provider.to=$("dashTo").value;save();hydrateDashboard();syncProviderBackend().then(function(r){toast(r.ok?(r.hasLocation?"Delivery area saved":"Area saved; location permission needed"):"Saved locally")}).catch(function(err){console.error(err);toast("Area saved locally; backend sync failed")})};
 function fillProfile(){$("dashProviderName").value=provider.providerName||"";$("dashOwnerName").value=provider.ownerName||"";$("dashPhone").value=provider.phone||"";$("dashType").value=provider.type||"cow";$("trustProfile").textContent=profilePercent()===100?"Complete":"Pending"}
-$("saveProfile").onclick=()=>{const name=$("dashProviderName").value.trim(),owner=$("dashOwnerName").value.trim(),phone=$("dashPhone").value.replace(/\D/g,"");if(!name||!owner||!/^\d{10}$/.test(phone)){toast("Enter provider name, owner and valid mobile");return}provider.providerName=name;provider.ownerName=owner;provider.phone=phone;provider.type=$("dashType").value;save();hydrateDashboard();toast("Provider profile saved")};
+$("saveProfile").onclick=()=>{const name=$("dashProviderName").value.trim(),owner=$("dashOwnerName").value.trim(),phone=$("dashPhone").value.replace(/\D/g,"");if(!name||!owner||!/^\d{10}$/.test(phone)){toast("Enter provider name, owner and valid mobile");return}provider.providerName=name;provider.ownerName=owner;provider.phone=phone;provider.type=$("dashType").value;save();hydrateDashboard();syncProviderBackend().then(function(r){$("providerMode").textContent=r.ok?(r.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION"):("LOCAL DEMO");toast(r.ok?"Provider profile saved":"Provider profile saved locally")}).catch(function(err){console.error(err);toast("Profile saved locally; backend sync failed")})};
 $("mobileProfile").onclick=()=>showView("profile");
 $("resetProvider").onclick=()=>{if(!confirm("Reset the Phase 2 demo provider and return to onboarding?"))return;localStorage.removeItem(STORAGE_KEY);location.reload()};
-if(provider.providerName){onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard()}else{$("providerName").value=provider.providerName||"";$("ownerName").value=provider.ownerName||"";$("phone").value=provider.phone||"";$("providerType").value=""}
+if(provider.providerName){onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();if(window.Doodhwala?.configured){Doodhwala.supabase.auth.getUser().then(function(r){if(r.data?.user){$("providerAuthLink").textContent="Account";$("providerAuthLink").href="/provider.html";syncProviderBackend().then(function(res){$("providerMode").textContent=res.ok?(res.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION"):"LOCAL DEMO"}).catch(function(){})}})}}else{$("providerName").value=provider.providerName||"";$("ownerName").value=provider.ownerName||"";$("phone").value=provider.phone||"";$("providerType").value=""}
 window.addEventListener("keydown",e=>{if(e.key==="Escape"){const modal=document.querySelector(".product-modal");if(modal)modal.remove()}});
