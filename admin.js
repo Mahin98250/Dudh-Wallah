@@ -41,6 +41,26 @@ function table(title,columns,rows,empty="No records yet."){
  $("adminContent").innerHTML='<div class="admin-section"><div class="admin-card admin-list-card"><div class="admin-list-head"><div><span class="eyebrow">LIVE BACKEND</span><h3>'+esc(title)+'</h3></div><button id="sectionRefresh">↻ Refresh</button></div><div class="table-scroll"><table class="table admin-table"><thead><tr>'+head+'</tr></thead><tbody>'+body+"</tbody></table></div></div></div>";
  $("sectionRefresh").onclick=()=>loadSection(section);
 }
+async function reviewProvider(id,status,button){
+ button.disabled=true;button.textContent=status==="approved"?"Approving…":status==="rejected"?"Rejecting…":"Updating…";
+ const notes=status==="approved"?"Approved by owner":status==="rejected"?(prompt("Reason for rejection?")||"Rejected by owner"):(prompt("Review note (optional)")||"");
+ if(status==="rejected"&&!notes.trim()){button.disabled=false;button.textContent="Reject";return}
+ const {error}=await Doodhwala.supabase.rpc("admin_set_provider_review",{p_provider_id:id,p_status:status,p_notes:notes,p_is_active:status==="approved"});
+ if(error){alert(error.message);button.disabled=false;return}
+ await loadSection("providers");
+}
+async function loadProvidersSection(){
+ cache.providers=await adminRpc("admin_list_providers",{p_limit:150});
+ const rows=cache.providers||[];
+ const body=rows.length?rows.map(r=>'<tr><td>'+esc(r.display_name)+'</td><td>'+esc(r.owner_name)+'</td><td>'+esc([r.area_name,r.city].filter(Boolean).join(", "))+'</td><td><span class="admin-status '+esc(r.verification_status)+'">'+esc(r.verification_status)+'</span></td><td>'+r.product_count+'</td><td>'+ (r.is_active?"Yes":"No") +'</td><td><div class="provider-review-actions">'+
+   (r.verification_status!=="approved"?'<button data-review="approved" data-id="'+esc(r.id)+'">Approve</button>':"")+
+   (r.verification_status!=="rejected"?'<button data-review="rejected" data-id="'+esc(r.id)+'" class="danger">Reject</button>':"")+
+   (r.verification_status==="approved"&&r.is_active?'<button data-review="pending" data-id="'+esc(r.id)+'">Deactivate</button>':"")+
+ '</div></td></tr>').join(""):'<tr><td colspan="7" class="empty-table">No providers yet.</td></tr>';
+ $("adminContent").innerHTML='<div class="admin-section"><div class="admin-card admin-list-card"><div class="admin-list-head"><div><span class="eyebrow">LIVE BACKEND</span><h3>Providers</h3></div><button id="sectionRefresh">↻ Refresh</button></div><div class="table-scroll"><table class="table admin-table"><thead><tr><th>Provider</th><th>Owner</th><th>Area</th><th>Verification</th><th>Products</th><th>Active</th><th>Owner actions</th></tr></thead><tbody>'+body+'</tbody></table></div></div></div>';
+ $("sectionRefresh").onclick=()=>loadSection("providers");
+ $("adminContent").querySelectorAll("[data-review]").forEach(btn=>btn.addEventListener("click",()=>reviewProvider(btn.dataset.id,btn.dataset.review,btn)));
+}
 async function loadSection(next){
  section=next;
  document.querySelectorAll("[data-section]").forEach(x=>x.classList.toggle("active",x.dataset.section===section));
@@ -48,7 +68,7 @@ async function loadSection(next){
  try{
   if(section==="overview"){await loadOverview();return}
   if(section==="orders"){cache.orders=await adminRpc("admin_list_orders",{p_limit:150});table("Orders",[["Order ID",r=>"<code>"+esc(String(r.id).slice(0,8))+"</code>"],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Total",r=>money(r.total)],["Created",r=>dateTime(r.created_at)]],cache.orders);return}
-  if(section==="providers"){cache.providers=await adminRpc("admin_list_providers",{p_limit:150});table("Providers",[["Provider",r=>esc(r.display_name)],["Owner",r=>esc(r.owner_name)],["Area",r=>esc([r.area_name,r.city].filter(Boolean).join(", "))],["Verification",r=>'<span class="admin-status '+esc(r.verification_status)+'">'+esc(r.verification_status)+'</span>'],["Products",r=>r.product_count],["Active",r=>r.is_active?"Yes":"No"],["Created",r=>dateText(r.created_at)]],cache.providers);return}
+  if(section==="providers"){await loadProvidersSection();return}
   if(section==="customers"){cache.customers=await adminRpc("admin_list_customers",{p_limit:150});table("Customers",[["Customer",r=>esc(r.full_name||"—")],["Email",r=>esc(r.email||"—")],["Phone",r=>esc(r.phone||"—")],["Orders",r=>r.order_count],["Active plans",r=>r.active_plan_count],["Joined",r=>dateText(r.created_at)]],cache.customers);return}
   if(section==="subscriptions"){cache.subscriptions=await adminRpc("admin_list_subscriptions",{p_limit:150});table("Subscriptions",[["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Milk",r=>esc(r.product_name||"—")],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Qty",r=>Number(r.quantity_litres||0)+" L"],["Period",r=>dateText(r.start_date)+" → "+dateText(r.end_date)],["Deliveries",r=>r.delivery_count]],cache.subscriptions);return}
   if(section==="settings"){$("adminContent").innerHTML='<div class="admin-section"><div class="admin-card"><span class="eyebrow">OWNER SETTINGS</span><h3>Secure control configuration</h3><div class="admin-note">Admin access is controlled by the private <code>admin_allowlist</code>. The admin URL itself is not a security boundary. Add or remove owner emails only through your secure Supabase owner workflow. Never put a service-role key in the frontend.</div><div class="settings-grid"><div><b>Live database</b><span>Supabase · ap-south-1</span></div><div><b>Order model</b><span>Realtime lifecycle + provider capacity</span></div><div><b>Subscriptions</b><span>Scheduled deliveries materialized automatically</span></div><div><b>Marketplace</b><span>Location + provider service-radius discovery</span></div></div></div></div>';return}
