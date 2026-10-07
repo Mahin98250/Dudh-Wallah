@@ -27,7 +27,7 @@ document.getElementById("filterButton").onclick=function(){document.getElementBy
 function openCart(){document.body.classList.add("drawer-open")}function closeCart(){document.body.classList.remove("drawer-open")}
 document.getElementById("openCart").onclick=openCart;document.getElementById("openCartMobile").onclick=openCart;document.getElementById("closeCart").onclick=closeCart;document.getElementById("backdrop").onclick=closeCart;
 document.getElementById("how").onclick=function(){document.body.classList.add("modal-open")};document.getElementById("closeModal").onclick=function(){document.body.classList.remove("modal-open")};document.getElementById("modalBackdrop").onclick=function(e){if(e.target.id==="modalBackdrop")document.body.classList.remove("modal-open")};
-document.getElementById("checkout").onclick=function(){if(!Object.keys(cart).length){toast("Your cart is empty");return}location.href="./checkout.html"};
+document.getElementById("checkout").onclick=function(){if(!Object.keys(cart).length){toast("Your cart is empty");return}location.href="/Dudh-Wallah/checkout.html"};
 ["locationBtn","locationTop"].forEach(function(id){document.getElementById(id).onclick=function(){if(!window.Doodhwala?.configured){toast("Backend is not configured yet");return}if(!navigator.geolocation){toast("Location is not available on this device");return}toast("Finding local milk providers…");navigator.geolocation.getCurrentPosition(async function(pos){try{await loadRemoteProviders(pos.coords.latitude,pos.coords.longitude);document.getElementById("locationLabel").textContent="Nearby";toast("Local providers updated")}catch(err){toast("Could not load nearby providers")}},function(){toast("Location permission was not granted")},{enableHighAccuracy:false,timeout:8000,maximumAge:300000})}});
 document.querySelectorAll("[data-go]").forEach(function(b){b.onclick=function(){document.querySelectorAll("[data-go]").forEach(function(x){x.classList.remove("active")});document.querySelectorAll('[data-go="'+b.dataset.go+'"]').forEach(function(x){x.classList.add("active")});if(b.dataset.go==="providers")document.getElementById("providers").scrollIntoView({behavior:"smooth"});else if(b.dataset.go==="home")window.scrollTo({top:0,behavior:"smooth"});else if(b.dataset.go==="orders")location.href="./orders.html";else toast("Saved providers are next")}});
 async function loadRemoteProviders(lat=null,lng=null){
@@ -59,8 +59,8 @@ async function initRemoteBackend(){
  try{await loadRemoteProviders();}catch(err){console.error(err);toast("Backend connection failed — demo data remains available")}
  const {data}=await Doodhwala.supabase.auth.getUser();
  const authLink=document.getElementById("authLink");
- if(data?.user&&authLink){authLink.textContent="Account";authLink.href="./checkout.html"}
+ if(data?.user&&authLink){authLink.textContent="Account";authLink.href="/Dudh-Wallah/checkout.html"}
 }
 updateCart();render();
 initRemoteBackend();
-if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){})});
+if("serviceWorker" in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("/Dudh-Wallah/sw.js").catch(function(){})});
