@@ -39,6 +39,27 @@ function serviceText(){
    $("serviceCopy").textContent="Choose your delivery location to see whether this provider can serve your home.";
  }
 }
+let storeMap=null;
+function renderStoreMap(){
+ const el=$("storeMap");if(!el||!window.L||!store?.latitude||!store?.longitude)return;
+ if(storeMap)storeMap.remove();
+ storeMap=L.map(el,{zoomControl:true,attributionControl:true}).setView([Number(store.latitude),Number(store.longitude)],13);
+ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}).addTo(storeMap);
+ const providerPoint=[Number(store.latitude),Number(store.longitude)];
+ L.marker(providerPoint,{title:store.provider_name}).addTo(storeMap).bindPopup("<b>"+esc(store.provider_name)+"</b><br>Provider service point");
+ L.circle(providerPoint,{radius:Number(store.service_radius_km||5)*1000,weight:1,fillOpacity:.08}).addTo(storeMap);
+ const pos=readLocation();
+ if(pos){
+   L.circleMarker([pos.latitude,pos.longitude],{radius:7,weight:3,fillOpacity:1}).addTo(storeMap).bindPopup("<b>Your delivery pin</b>");
+   const group=L.featureGroup([L.marker(providerPoint),L.marker([pos.latitude,pos.longitude])]);
+   storeMap.fitBounds(group.getBounds(),{padding:[25,25],maxZoom:14});
+   $("mapZoneTitle").textContent=store.is_serviceable===true?"✓ You are inside this zone":store.is_serviceable===false?"Outside this zone":"Delivery zone";
+   $("mapZoneCopy").textContent=store.distance_km==null?"Set location to check distance":store.distance_km+" km from you · "+store.service_radius_km+" km radius";
+ }else{
+   $("mapZoneTitle").textContent="Provider service zone";
+   $("mapZoneCopy").textContent=(store.service_radius_km||5)+" km delivery radius · set your location to check serviceability";
+ }
+}
 function render(){
  $("storeContent").classList.remove("hidden");
  $("crumbProvider").textContent=store.provider_name;
@@ -60,6 +81,7 @@ function render(){
  }).join(""):'<div class="market-empty"><div style="font-size:38px">🥛</div><h3>No milk products are live yet.</h3><p>This provider has not published an active in-stock product.</p></div>';
  $("productGrid").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{const p=products.find(x=>x.id===b.dataset.add);if(p)addProduct(p)});
  serviceText();
+ renderStoreMap();
 }
 async function load(){
  setLocationLabel();
