@@ -73,7 +73,9 @@ function openPlanEditor(plan){
  document.body.append(modal);modal.querySelectorAll("[data-close]").forEach(b=>b.onclick=closePlanModal);
  modal.querySelector("#savePlanChanges").onclick=async function(){
   const btn=this,err=modal.querySelector("#editPlanError");err.textContent="";btn.disabled=true;btn.textContent="Saving…";
-  const r=await sup.rpc("update_milk_subscription",{p_subscription_id:plan.id,p_quantity_litres:Number(modal.querySelector("#editPlanQty").value),p_delivery_time:modal.querySelector("#editPlanTime").value+":00",p_address_id:modal.querySelector("#editPlanAddress").value});
+  const time=modal.querySelector("#editPlanTime").value,address=modal.querySelector("#editPlanAddress").value;
+  if(!time||!address){err.textContent="Choose a delivery time and address.";btn.disabled=false;btn.textContent="Save changes →";return}
+  const r=await sup.rpc("update_milk_subscription",{p_subscription_id:plan.id,p_quantity_litres:Number(modal.querySelector("#editPlanQty").value),p_delivery_time:time+":00",p_address_id:address});
   if(r.error){err.textContent=niceError(r.error.message);btn.disabled=false;btn.textContent="Save changes →";return}
   closePlanModal();await loadPlans();
  };
