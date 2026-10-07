@@ -14,13 +14,15 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           set -e
-          for file in app.js auth.js checkout.js provider.js supabase-client.js supabase-config.js sw.js; do
+          for file in app.js auth.js checkout.js provider.js supabase-client.js supabase-config.js sw.js orders.js; do
             node --check "$file"
           done
-      - name: Reject project-site breaking root paths
+      - name: Reject accidental domain-root paths
         run: |
           set -e
-          if grep -RInE 'href="/|src="/|location\.href="/|register\("/|start_url":"/'             --include='*.html' --include='*.js' --include='*.webmanifest' .; then
-            echo "Found root-absolute paths that break GitHub Pages project deployments."
+          matches=$(grep -RInE 'href="/|src="/|location\.href="/|register\("/|start_url":"/' --include='*.html' --include='*.js' --include='*.webmanifest' . | grep -v '/Dudh-Wallah/' || true)
+          if [ -n "$matches" ]; then
+            echo "$matches"
+            echo "Found an absolute path that is not rooted at the Doodhwala GitHub Pages project."
             exit 1
           fi
