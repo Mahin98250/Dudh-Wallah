@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#175a3c"><meta name="description" content="Doodhwala local milk provider storefront.">
+<title>Doodhwala — Provider</title><link rel="icon" href="/Dudh-Wallah/assets/logo.svg">
+<link rel="stylesheet" href="/Dudh-Wallah/styles.css"><link rel="stylesheet" href="/Dudh-Wallah/market.css">
+</head>
+<body class="market-page">
+<header class="market-top">
+<a href="/Dudh-Wallah/" class="market-brand"><img src="/Dudh-Wallah/assets/logo.svg" alt=""><div><b>Doodhwala</b><small>Local milk, nearby.</small></div></a>
+<a href="/Dudh-Wallah/?openLocation=1" class="market-location" aria-label="Change delivery location"><span class="market-location-icon">⌖</span><span class="market-location-copy"><small>DELIVERING TO</small><b id="marketLocationLabel">Choose location</b></span></a>
+<a href="/Dudh-Wallah/" class="market-back">← Shop</a>
+</header>
+<main class="market-main">
+<div class="market-breadcrumb"><a href="/Dudh-Wallah/">Home</a><span>›</span><span id="crumbProvider">Provider</span></div>
+<div id="storeState"></div>
+<section id="storeContent" class="hidden">
+<div class="store-hero">
+<article class="store-identity">
+<div class="store-cover"><div class="store-cover-orb"></div><div id="storeEmoji" class="store-cover-emoji">🥛</div></div>
+<div class="store-title-row"><div><h1 id="storeName">Local milk provider</h1><div class="store-sub" id="storeSub">Nearby</div></div><span class="store-badge">✓ Verified local</span></div>
+<p class="store-description" id="storeDescription">Fresh local milk from an independent provider.</p>
+<div class="store-meta" id="storeMeta"></div>
+</article>
+<aside class="store-side">
+<div><span class="eyebrow" style="color:#cce7d4">DELIVERY</span><h3 id="serviceHeadline">Milk, delivered to your area.</h3><p id="serviceCopy">Set your delivery location to check serviceability.</p></div>
+<div id="servicePill" class="service-pill"><span class="service-pill-dot"></span><div><b id="serviceLabel">Check your location</b><small id="serviceDistance">Nearby provider</small></div></div>
+<div><button class="primary" id="storeChangeLocation" type="button">⌖ Change delivery location</button></div>
+</aside>
+</div>
+<section class="store-section">
+<div class="store-section-head"><div><span class="eyebrow">MILK CATALOGUE</span><h2>Choose your milk</h2><p>Prices are live from the provider catalogue.</p></div><span id="productCount" class="store-count"></span></div>
+<div id="productGrid" class="product-grid"></div>
+</section>
+</section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.min.js"></script>
+<script src="/Dudh-Wallah/supabase-config.js"></script><script src="/Dudh-Wallah/supabase-client.js"></script>
+<script src="/Dudh-Wallah/store.js"></script><script src="/Dudh-Wallah/customer-nav.js"></script>
+</body></html>
