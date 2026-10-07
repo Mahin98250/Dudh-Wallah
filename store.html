@@ -4,7 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#175a3c"><meta name="description" content="Doodhwala local milk provider storefront.">
 <title>Doodhwala — Provider</title><link rel="icon" href="/Dudh-Wallah/assets/logo.svg">
-<link rel="stylesheet" href="/Dudh-Wallah/styles.css"><link rel="stylesheet" href="/Dudh-Wallah/market.css">
+<link rel="stylesheet" href="/Dudh-Wallah/styles.css"><link rel="stylesheet" href="/Dudh-Wallah/market.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="market-page">
 <header class="market-top">
@@ -33,9 +33,10 @@
 <div class="store-section-head"><div><span class="eyebrow">MILK CATALOGUE</span><h2>Choose your milk</h2><p>Prices are live from the provider catalogue.</p></div><span id="productCount" class="store-count"></span></div>
 <div id="productGrid" class="product-grid"></div>
 </section>
+<section class="store-section store-map-section"><div class="store-section-head"><div><span class="eyebrow">DELIVERY ZONE</span><h2>Provider service area</h2><p>Nearby customers are checked against the provider's live delivery radius.</p></div></div><div class="store-map-card"><div id="storeMap" class="store-map"></div><div class="store-map-note"><b id="mapZoneTitle">Service zone</b><span id="mapZoneCopy"></span></div></div></section>
 </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.min.js"></script>
 <script src="/Dudh-Wallah/supabase-config.js"></script><script src="/Dudh-Wallah/supabase-client.js"></script>
 <script src="/Dudh-Wallah/store.js"></script><script src="/Dudh-Wallah/customer-nav.js"></script>
-</body></html>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script></body></html>
