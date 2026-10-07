@@ -14,7 +14,7 @@ async function boot(){
  if(error||!data.user){gateError("Sign in required.");return}
  const check=await Doodhwala.supabase.rpc("is_current_user_admin");
  if(check.error||check.data!==true){gateError("Owner access required. Add this owner's email to the private admin allowlist.");return}
- $("adminGate").classList.add("hidden");$("adminApp").classList.remove("hidden");setDefaultDates();
+ $("adminGate").classList.add("hidden");$("adminApp").classList.remove("hidden");setDefaultDates();setupAdminRealtime();
  $("adminSignout").onclick=async()=>{await Doodhwala.supabase.auth.signOut();location.href="/Dudh-Wallah/"};
  await loadSection("overview");
 }
@@ -61,6 +61,18 @@ async function loadProvidersSection(){
  $("adminContent").innerHTML='<div class="admin-section"><div class="admin-card admin-list-card"><div class="admin-list-head"><div><span class="eyebrow">LIVE BACKEND</span><h3>Providers</h3></div><button id="sectionRefresh">↻ Refresh</button></div><div class="table-scroll"><table class="table admin-table"><thead><tr><th>Provider</th><th>Owner</th><th>Area</th><th>Verification</th><th>Products</th><th>Active</th><th>Owner actions</th></tr></thead><tbody>'+body+'</tbody></table></div></div></div>';
  $("sectionRefresh").onclick=()=>loadSection("providers");
  $("adminContent").querySelectorAll("[data-review]").forEach(btn=>btn.addEventListener("click",()=>reviewProvider(btn.dataset.id,btn.dataset.review,btn)));
+}
+function setupAdminRealtime(){
+ if(!window.Doodhwala?.configured||window.__doodhwalaAdminChannel)return;
+ window.__doodhwalaAdminChannel=Doodhwala.supabase.channel("admin-live-control")
+   .on("postgres_changes",{event:"*",schema:"public",table:"orders"},function(){
+     const s=$("adminLiveStatus");if(s){s.textContent="● Updating";s.classList.add("updating");setTimeout(()=>{s.textContent="● Live";s.classList.remove("updating")},900)}
+     loadSection(section);
+   })
+   .on("postgres_changes",{event:"*",schema:"public",table:"provider_profiles"},function(){if(section==="providers"||section==="overview")loadSection(section)})
+   .on("postgres_changes",{event:"*",schema:"public",table:"provider_verifications"},function(){if(section==="providers"||section==="overview")loadSection(section)})
+   .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions"},function(){if(section==="subscriptions"||section==="overview")loadSection(section)})
+   .subscribe();
 }
 async function loadSection(next){
  section=next;
