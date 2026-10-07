@@ -1,7 +1,29 @@
 const STORAGE_KEY="doodhwala-provider-v1";
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function newUuid(){
+ if(globalThis.crypto?.randomUUID)return globalThis.crypto.randomUUID();
+ const bytes=new Uint8Array(16);
+ if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(bytes);
+ else for(let i=0;i<bytes.length;i++)bytes[i]=Math.floor(Math.random()*256);
+ bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+ const hex=Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+ return hex.slice(0,8)+"-"+hex.slice(8,12)+"-"+hex.slice(12,16)+"-"+hex.slice(16,20)+"-"+hex.slice(20);
+}
+function normalizeProductIds(){
+ const seen=new Set(),products=Array.isArray(provider.products)?provider.products:[];
+ let changed=false;
+ provider.products=products.map(p=>{
+   const next={...p};
+   if(!UUID_RE.test(String(next.id||""))||seen.has(String(next.id||""))){next.id=newUuid();changed=true}
+   seen.add(next.id);
+   return next;
+ });
+ if(changed)save();
+}
+
 const defaultProvider={providerName:"",ownerName:"",phone:"",type:"cow",area:"",city:"Ahmedabad",pin:"",radius:"5",from:"06:00",to:"09:00",maxOpenOrders:"25",maxDailyLitres:"250",acceptanceTimeoutMinutes:"10",acceptingOrders:true,products:[]};
 let provider=Object.assign({},defaultProvider,JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));
-let currentStep=1;
+let currentStep=1;\nnormalizeProductIds();
 const $=id=>document.getElementById(id);
 async function getCurrentLocation(){
  return await new Promise(function(resolve){if(!navigator.geolocation){resolve(null);return}navigator.geolocation.getCurrentPosition(function(pos){resolve({latitude:pos.coords.latitude,longitude:pos.coords.longitude})},function(){resolve(null)},{enableHighAccuracy:false,timeout:7000,maximumAge:600000})})
@@ -73,7 +95,7 @@ document.querySelectorAll("[data-back]").forEach(btn=>btn.onclick=()=>setStep(Nu
 $("finishOnboarding").onclick=()=>{
  readOnboarding();const name=$("firstMilkName").value.trim()||"Fresh milk",price=Number($("firstMilkPrice").value);
  if(!price||price<=0){toast("Enter a valid milk price");return}
- provider.products=[{id:crypto.randomUUID?.()||String(Date.now()),name,price,stock:$("firstMilkStock").value==="in",days:$("firstMilkDays").value==="yes",type:provider.type,unit:"1 L"}];
+ provider.products=[{id:newUuid(),name,price,stock:$("firstMilkStock").value==="in",days:$("firstMilkDays").value==="yes",type:provider.type,unit:"1 L"}];
  save();onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();syncProviderBackend().then(function(result){if(result.ok){$("providerMode").textContent=result.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION";$("providerAuthLink").textContent="Account";$("providerAuthLink").href="/Dudh-Wallah/provider.html";toast(result.hasLocation?"Provider saved — pending verification":"Provider saved; location still needed")}else if(result.reason==="not_signed_in"){toast("Demo saved. Sign in to publish your provider")}}).catch(function(err){console.error(err);toast("Provider saved locally; backend sync failed")})
 };
 function profilePercent(){const fields=[provider.providerName,provider.ownerName,provider.phone,provider.type,provider.area,provider.city,provider.pin,provider.radius,provider.from,provider.to];return Math.round(fields.filter(Boolean).length/fields.length*100)}
@@ -104,7 +126,7 @@ function openProductEditor(id){
  modal.innerHTML='<div class="product-modal-card"><div class="modal-top"><div><span class="eyebrow">'+(existing?"EDIT PRODUCT":"NEW PRODUCT")+'</span><h2>'+(existing?"Update milk details":"Add a milk product")+'</h2></div><button data-close>×</button></div><div class="form-grid"><label>Milk name<input id="mName" value="'+escapeHtml(existing?.name||"")+'" placeholder="Fresh cow milk"></label><label>Price per litre<input id="mPrice" inputmode="decimal" value="'+(existing?.price||"")+'" placeholder="68"></label><label>Milk type<select id="mType"><option value="cow">Cow milk</option><option value="buffalo">Buffalo milk</option><option value="a2">A2 milk</option><option value="mixed">Mixed</option></select></label><label>Availability<select id="mStock"><option value="true">In stock</option><option value="false">Unavailable</option></select></label></div><div class="modal-option-row"><label><input id="mDays" type="checkbox" '+(existing?.days!==false?"checked":"")+'> Available every day</label></div><div class="modal-actions"><button class="secondary" data-close>Cancel</button><button class="provider-primary" id="saveProductModal">'+(existing?"Save changes":"Add product")+' →</button></div></div>';
  document.body.append(modal);if(existing){$("mType").value=existing.type||"cow";$("mStock").value=String(existing.stock)}
  const close=()=>modal.remove();modal.querySelectorAll("[data-close]").forEach(x=>x.onclick=close);
- $("saveProductModal").onclick=()=>{const name=$("mName").value.trim(),price=Number($("mPrice").value);if(!name||!price||price<=0){toast("Enter a product name and valid price");return}const data={name,price,type:$("mType").value,stock:$("mStock").value==="true",days:$("mDays").checked,unit:"1 L"};if(existing)Object.assign(existing,data);else provider.products.push({id:crypto.randomUUID?.()||String(Date.now()+Math.random()),...data});save();renderProducts();hydrateDashboard();close();syncProviderBackend().then(function(){toast(existing?"Product updated":"Milk added to catalogue")}).catch(function(err){console.error(err);toast(existing?"Product updated locally; backend sync failed":"Milk added locally; backend sync failed")})}
+ $("saveProductModal").onclick=()=>{const name=$("mName").value.trim(),price=Number($("mPrice").value);if(!name||!price||price<=0){toast("Enter a product name and valid price");return}const data={name,price,type:$("mType").value,stock:$("mStock").value==="true",days:$("mDays").checked,unit:"1 L"};if(existing)Object.assign(existing,data);else provider.products.push({id:newUuid(),...data});save();renderProducts();hydrateDashboard();close();syncProviderBackend().then(function(){toast(existing?"Product updated":"Milk added to catalogue")}).catch(function(err){console.error(err);toast(existing?"Product updated locally; backend sync failed":"Milk added locally; backend sync failed")})}
 }
 function toggleProduct(id){const p=provider.products.find(x=>x.id===id);if(!p)return;p.stock=!p.stock;save();renderProducts();hydrateDashboard();syncProviderBackend().catch(function(err){console.error(err)});toast(p.stock?"Product activated":"Product paused")}
 function deleteProduct(id){const p=provider.products.find(x=>x.id===id);if(!p)return;if(!confirm("Delete "+p.name+" from your catalogue?"))return;provider.products=provider.products.filter(x=>x.id!==id);save();renderProducts();hydrateDashboard();syncDeleteProduct(id).catch(function(err){console.error(err)});toast("Product deleted")}
