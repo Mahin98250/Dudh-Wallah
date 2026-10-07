@@ -36,6 +36,15 @@ function refreshOrderPromises(){
  });
 }
 function cancelReason(){return (prompt("Why are you cancelling this order?")||"").trim().slice(0,300)}
+async function rateOrder(id,stars,button){
+ if(!confirm("Rate this provider "+stars+"/5 stars?"))return;
+ const comment=(prompt("Optional feedback for the provider:")||"").trim().slice(0,500);
+ button.disabled=true;
+ const {error}=await Doodhwala.supabase.rpc("rate_delivered_order",{p_order_id:id,p_stars:Number(stars),p_comment:comment||null});
+ if(error){button.disabled=false;$("ordersState").textContent=error.message;return}
+ await loadOrders();
+ $("ordersState").textContent="Thanks — your provider rating was saved.";
+}
 async function cancelOrder(id,button){
  if(!confirm("Cancel this milk order? This is available only before packing starts."))return;
  const reason=cancelReason();if(!reason)return;
@@ -49,7 +58,7 @@ async function loadOrders(){
  const {data:userData}=await Doodhwala.supabase.auth.getUser(),user=userData?.user;
  if(!user){$("ordersState").textContent="";$("ordersGate").classList.remove("hidden");$("ordersList").classList.add("hidden");return}
  $("ordersGate").classList.add("hidden");$("ordersList").classList.remove("hidden");$("ordersState").textContent="Loading your latest orders…";if(!window.__doodhwalaOrdersChannel){window.__doodhwalaOrdersChannel=Doodhwala.supabase.channel("customer-orders-"+user.id).on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"customer_id=eq."+user.id},function(){loadOrders()}).subscribe()}
- const result=await Doodhwala.supabase.from("orders").select("id,status,subtotal,delivery_fee,total,customer_note,created_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,acceptance_deadline_at,estimated_delivery_min_minutes,estimated_delivery_max_minutes,promised_delivery_at,late_after_at,provider_id,provider_profiles(display_name,area_name,city),order_items(product_name_snapshot,quantity,unit_price,line_total)").eq("customer_id",user.id).order("created_at",{ascending:false}).limit(50);
+ const result=await Doodhwala.supabase.from("orders").select("id,status,subtotal,delivery_fee,total,customer_note,created_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,acceptance_deadline_at,estimated_delivery_min_minutes,estimated_delivery_max_minutes,promised_delivery_at,late_after_at,provider_id,provider_profiles(display_name,area_name,city),order_items(product_name_snapshot,quantity,unit_price,line_total),order_ratings(stars,comment)").eq("customer_id",user.id).order("created_at",{ascending:false}).limit(50);
  if(result.error){$("ordersState").textContent=result.error.message;return}
  const orders=result.data||[];const eventResult=orders.length?await Doodhwala.supabase.from("order_status_events").select("order_id,from_status,to_status,reason,created_at").in("order_id",orders.map(o=>o.id)).order("created_at",{ascending:true}):{data:[]};
  const eventsBy={};(eventResult.data||[]).forEach(e=>(eventsBy[e.order_id]??=[]).push(e));
@@ -59,10 +68,16 @@ async function loadOrders(){
   const p=o.provider_profiles,events=eventsBy[o.id]||[];
   const timeline='<div class="order-timeline">'+events.map(function(e){return '<div class="timeline-row"><span class="timeline-dot"></span><div><b>'+esc(statusLabel(e.to_status))+'</b><small>'+esc(when(e.created_at))+(e.reason?' · '+esc(e.reason):"")+'</small></div></div>'}).join("")+'</div>';
   const action=(o.status==="placed"||o.status==="accepted")?'<div class="order-actions"><button class="order-cancel" data-cancel-order="'+o.id+'">Cancel order</button></div>':"";
-  return '<article class="order-card"><div class="order-card-head"><div><div class="order-provider">'+esc(p?.display_name||"Local milk provider")+'</div><div class="order-meta">Order '+esc(o.id)+' · '+esc(when(o.created_at))+'</div></div><span class="customer-status '+esc(o.status)+'">'+esc(statusLabel(o.status))+'</span></div><div class="customer-items">'+(o.order_items||[]).map(function(i){return '<div class="customer-item"><span>'+esc(i.product_name_snapshot)+' × '+i.quantity+' L</span><b>'+money(i.line_total)+'</b></div>'}).join("")+'</div><div class="customer-total"><span>Total</span><b>'+money(o.total)+'</b></div><div class="customer-address"><b>Delivery</b><br>'+esc(o.delivery_recipient_name||"")+' · '+esc(o.delivery_phone||"")+'<br>'+esc(o.delivery_address_line||"")+', '+esc([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", "))+'</div>'+deliveryPromise(o)+(o.customer_note?'<div class="customer-note">Note: '+esc(o.customer_note)+'</div>':"")+timeline+action+'</article>';
+  const ratingBlock=o.status==="delivered" ? (o.order_ratings?.length
+    ? '<div class="order-rating saved"><span>★★★★★ Provider rating</span><b>'+Number(o.order_ratings[0].stars)+'/5</b></div>'
+    : '<div class="order-rating"><span>How was this provider?</span><div class="rating-actions">★★★★★'.split("").map(()=>0).slice(0,0).join("")+'</div><div class="rating-actions">'+[1,2,3,4,5].map(function(n){return '<button data-rate-order="'+o.id+'" data-rate-stars="'+n+'" aria-label="Rate '+n+' stars">★</button>'}).join("")+'</div></div>') : "";
+  return '<article class="order-card"><div class="order-card-head"><div><div class="order-provider">'+esc(p?.display_name||"Local milk provider")+'</div><div class="order-meta">Order '+esc(o.id)+' · '+esc(when(o.created_at))+'</div></div><span class="customer-status '+esc(o.status)+'">'+esc(statusLabel(o.status))+'</span></div><div class="customer-items">'+(o.order_items||[]).map(function(i){return '<div class="customer-item"><span>'+esc(i.product_name_snapshot)+' × '+i.quantity+' L</span><b>'+money(i.line_total)+'</b></div>'}).join("")+'</div><div class="customer-total"><span>Total</span><b>'+money(o.total)+'</b></div><div class="customer-address"><b>Delivery</b><br>'+esc(o.delivery_recipient_name||"")+' · '+esc(o.delivery_phone||"")+'<br>'+esc(o.delivery_address_line||"")+', '+esc([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", "))+'</div>'+deliveryPromise(o)+(o.customer_note?'<div class="customer-note">Note: '+esc(o.customer_note)+'</div>':"")+timeline+ratingBlock+action+'</article>';
  }).join("");
  $("ordersList").querySelectorAll("[data-cancel-order]").forEach(function(button){
    button.addEventListener("click",function(){cancelOrder(button.dataset.cancelOrder,button)});
+ });
+ $("ordersList").querySelectorAll("[data-rate-order]").forEach(function(button){
+   button.addEventListener("click",function(){rateOrder(button.dataset.rateOrder,button.dataset.rateStars,button)});
  });
 }
 $("refreshOrders").onclick=loadOrders;clearInterval(window.__orderPromiseTimer);window.__orderPromiseTimer=setInterval(refreshOrderPromises,1000);loadOrders();
