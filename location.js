@@ -106,19 +106,22 @@
     providerLayer.clearLayers();
     const list = Array.isArray(window.providers) ? window.providers : [];
     let count = 0;
+    let serviceable = 0;
     const bounds = [];
     for (const provider of list) {
       const lat = Number(provider.latitude);
       const lng = Number(provider.longitude);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
       count += 1;
-      const marker = L.circleMarker([lat, lng], { radius: 7, weight: 2, fillOpacity: 0.95 });
+      if (provider.isServiceable === true) serviceable += 1;
+      const marker = L.circleMarker([lat, lng], { radius: provider.isServiceable === false ? 6 : 8, weight: 2, fillOpacity: 0.95 });
       const distanceText = provider.distanceKm != null ? " · " + formatDistance(provider.distanceKm) : "";
-      marker.bindPopup("<b>" + escapeHtml(provider.name || "Local milk provider") + "</b><br><span>" + escapeHtml(provider.area || "Nearby") + escapeHtml(distanceText) + "</span><br><span>" + escapeHtml(provider.tag || "Milk") + "</span>");
+      const serviceText = provider.isServiceable === true ? "✓ Delivers to this pin" : provider.isServiceable === false ? "Outside delivery zone" : "Set your location to check delivery";
+      marker.bindPopup("<b>" + escapeHtml(provider.name || "Local milk provider") + "</b><br><span>" + escapeHtml(provider.area || "Nearby") + escapeHtml(distanceText) + "</span><br><span>" + escapeHtml(provider.tag || "Milk") + "</span><br><strong>" + escapeHtml(serviceText) + "</strong>");
       marker.addTo(providerLayer);
       bounds.push([lat, lng]);
     }
-    setText(nearbyEl, String(count));
+    setText(nearbyEl, lastPosition ? String(serviceable) : String(count));
     if (lastPosition && map && count) {
       bounds.push([lastPosition.latitude, lastPosition.longitude]);
       map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
@@ -145,7 +148,7 @@
     try {
       if (typeof window.loadRemoteProviders === 'function') await window.loadRemoteProviders(lastPosition.latitude, lastPosition.longitude);
       refreshProviderMarkers();
-      setText(stateEl, "Your nearby local milk providers are now shown on the map.");
+      setText(stateEl, "Delivery location set. Showing providers in the area and highlighting who can deliver to this pin.");
       await syncProfileLocation(lastPosition);
     } catch (error) {
       console.error(error);
