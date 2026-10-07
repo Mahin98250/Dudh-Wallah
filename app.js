@@ -6,6 +6,7 @@ let providers=[
 {id:"p5",name:"Ranchhodbhai Milk Home",area:"Science City • 4.6 km",tag:"Buffalo milk",type:"buffalo",emoji:"🐃",rating:"4.6",delivery:"40–50 min",verified:true,subscription:false,milks:[["Buffalo milk","₹70 / L"],["Thick cream milk","₹82 / L"]]},
 {id:"p6",name:"Vraj Organic Milk",area:"Sindhu Bhavan • 5.2 km",tag:"A2 milk",type:"a2",emoji:"🌿",rating:"4.9",delivery:"35–45 min",verified:true,subscription:true,milks:[["Organic A2 milk","₹110 / L"],["A2 cultured milk","₹120 / L"]]}
 ];
+window.providers=providers;
 let activeFilter="all";
 let query="";
 let browseMode="all";
@@ -48,7 +49,7 @@ function openCart(){document.body.classList.add("drawer-open")}function closeCar
 document.getElementById("openCart").onclick=openCart;document.getElementById("openCartMobile").onclick=openCart;document.getElementById("closeCart").onclick=closeCart;document.getElementById("backdrop").onclick=closeCart;
 document.getElementById("how").onclick=function(){document.body.classList.add("modal-open")};document.getElementById("closeModal").onclick=function(){document.body.classList.remove("modal-open")};document.getElementById("modalBackdrop").onclick=function(e){if(e.target.id==="modalBackdrop")document.body.classList.remove("modal-open")};
 document.getElementById("checkout").onclick=function(){if(!Object.keys(cart).length){toast("Your cart is empty");return}location.href="/Dudh-Wallah/checkout.html"};
-["locationBtn","locationTop"].forEach(function(id){document.getElementById(id).onclick=function(){if(!window.Doodhwala?.configured){toast("Backend is not configured yet");return}if(!navigator.geolocation){toast("Location is not available on this device");return}toast("Finding local milk providers…");navigator.geolocation.getCurrentPosition(async function(pos){try{await loadRemoteProviders(pos.coords.latitude,pos.coords.longitude);document.getElementById("locationLabel").textContent="Nearby";toast("Local providers updated")}catch(err){toast("Could not load nearby providers")}},function(){toast("Location permission was not granted")},{enableHighAccuracy:false,timeout:8000,maximumAge:300000})}});
+["locationBtn","locationTop"].forEach(function(id){const el=document.getElementById(id);if(el)el.onclick=function(){if(window.DoodhwalaLocation)window.DoodhwalaLocation.open();else toast("Location picker is still loading…")}});
 document.querySelectorAll("[data-go]").forEach(function(b){b.onclick=function(){const destination=b.dataset.go;document.querySelectorAll("[data-go]").forEach(function(x){x.classList.remove("active")});document.querySelectorAll('[data-go="'+destination+'"]').forEach(function(x){x.classList.add("active")});if(destination==="providers"){browseMode="all";render();document.getElementById("providers").scrollIntoView({behavior:"smooth"})}else if(destination==="home"){browseMode="all";render();window.scrollTo({top:0,behavior:"smooth"})}else if(destination==="orders"){location.href="./orders.html"}else if(destination==="plans"){location.href="./plans.html"}else if(destination==="saved"){browseMode="saved";render();document.getElementById("providers").scrollIntoView({behavior:"smooth"})}}});
 async function loadRemoteProviders(lat=null,lng=null){
  if(!window.Doodhwala?.configured)return;
