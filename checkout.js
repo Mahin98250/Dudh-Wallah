@@ -2,6 +2,10 @@ const CART_KEY="doodhwala-cart";
 let cart=JSON.parse(localStorage.getItem(CART_KEY)||"{}");
 const $=id=>document.getElementById(id);
 let sessionUser=null;
+const LOCATION_KEY="doodhwala-customer-location-v1";
+function readCustomerLocation(){try{const v=JSON.parse(localStorage.getItem(LOCATION_KEY)||"null");if(v&&Number.isFinite(+v.latitude)&&Number.isFinite(+v.longitude))return{latitude:+v.latitude,longitude:+v.longitude,accuracy:+v.accuracy||null};}catch(_){}return null}
+function syncCheckoutLocation(){const pos=readCustomerLocation();const state=$("checkoutLocationState"),lat=$("addressLatitude"),lng=$("addressLongitude");if(pos){lat.value=pos.latitude;lng.value=pos.longitude;state.textContent="Pinned delivery location is ready";state.style.color="#17603f"}else{lat.value="";lng.value="";state.textContent="No exact location selected — set it from the location picker"}}
+
 function money(n){return "₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2})}
 function showError(message){$("checkoutState").textContent=message;$("checkoutState").style.color="#a44c3e"}
 function friendlyOrderError(message){const m=String(message||"");const map={provider_order_capacity_full:"This provider is handling the maximum number of active orders right now. Please try another local provider.",provider_daily_capacity_full:"This provider has reached today's milk capacity. Please choose another provider or try again later.",provider_unavailable:"This provider is no longer available for ordering.",product_unavailable:"One of the selected milk products is no longer available.",invalid_cart_quantity:"The selected quantity is not valid."};return map[m]||m.replace(/^.*?:/,"").replace(/_/g," ")||"Could not place the order."}
@@ -19,10 +23,10 @@ async function load(){
  if(addresses?.[0])fillAddress(addresses[0]);
  renderItems();
 }
-function fillAddress(a){$("recipient").value=a.recipient_name||sessionUser?.user_metadata?.full_name||"";$("addressPhone").value=a.phone||"";$("addressLine").value=a.address_line||"";$("addressArea").value=a.area_name||"";$("addressCity").value=a.city||"Ahmedabad";$("addressPin").value=a.pin_code||"";$("defaultAddress").checked=Boolean(a.is_default)}
+function fillAddress(a){$("recipient").value=a.recipient_name||sessionUser?.user_metadata?.full_name||"";$("addressPhone").value=a.phone||"";$("addressLine").value=a.address_line||"";$("addressArea").value=a.area_name||"";$("addressCity").value=a.city||"Ahmedabad";$("addressPin").value=a.pin_code||"";$("defaultAddress").checked=Boolean(a.is_default);$("addressLatitude").value=a.latitude??"";$("addressLongitude").value=a.longitude??"";syncCheckoutLocation()}
 $("addressForm").onsubmit=async e=>{
  e.preventDefault();if(!Doodhwala.configured||!sessionUser)return;
- const row={user_id:sessionUser.id,label:"Home",recipient_name:$("recipient").value.trim(),phone:$("addressPhone").value.replace(/\D/g,""),address_line:$("addressLine").value.trim(),area_name:$("addressArea").value.trim(),city:$("addressCity").value.trim(),pin_code:$("addressPin").value.trim(),is_default:$("defaultAddress").checked};
+ const pos=readCustomerLocation(); const row={user_id:sessionUser.id,label:"Home",recipient_name:$("recipient").value.trim(),phone:$("addressPhone").value.replace(/\D/g,""),address_line:$("addressLine").value.trim(),area_name:$("addressArea").value.trim(),city:$("addressCity").value.trim(),pin_code:$("addressPin").value.trim(),latitude:pos?.latitude??(Number($("addressLatitude").value)||null),longitude:pos?.longitude??(Number($("addressLongitude").value)||null),is_default:$("defaultAddress").checked};
  if(!/^\d{10}$/.test(row.phone)||!/^\d{6}$/.test(row.pin_code)){showError("Enter a valid 10-digit phone and 6-digit PIN.");return}
  const {data,error}=await Doodhwala.supabase.from("addresses").insert(row).select().single();
  if(error){showError(error.message);return}
@@ -43,4 +47,4 @@ $("placeOrder").onclick=async()=>{
   localStorage.removeItem(CART_KEY);$("checkoutForm").classList.add("hidden");$("success").classList.remove("hidden");$("successText").textContent=orderIds.length===1?"Order "+orderIds[0]+" has been created.":"We created "+orderIds.length+" provider orders from your cart."; $("successOrders").innerHTML=orderIds.map(id=>'<div class="success-order"><b>Order '+escapeHtml(id)+'</b><br><span>Placed • awaiting provider acceptance</span></div>').join("")
  }catch(err){showError(friendlyOrderError(err.message));$("placeOrder").disabled=false;$("placeOrder").textContent="Place local milk order →"}
 };
-load();
+load();\nsyncCheckoutLocation();\n
