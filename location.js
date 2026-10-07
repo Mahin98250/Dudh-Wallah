@@ -1,4 +1,6 @@
 (() => {
+  const boot = () => {
+
   const LOCATION_KEY = "doodhwala-customer-location-v1";
   const modal = document.getElementById("locationModalBackdrop");
   const mapEl = document.getElementById("locationMap");
@@ -178,4 +180,8 @@
 
   window.DoodhwalaLocation = { open, close, locateMe, getSaved: () => lastPosition };
   window.addEventListener('doodhwala:providers-updated', refreshProviderMarkers);
+
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
+  else boot();
 })();
