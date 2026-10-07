@@ -15,6 +15,38 @@ function updatePreview(){const n=deliveryCount(),q=Number($("planQuantity").valu
 function setDays(){ $("dayButtons").innerHTML=dayNames.map((x,i)=>'<button type="button" class="day-button active" data-day="'+(i+1)+'">'+x+'</button>').join("");document.querySelectorAll(".day-button").forEach(b=>b.onclick=()=>{b.classList.toggle("active");if(!selectedDays().length)b.classList.add("active");updatePreview()})}
 function showError(v){$("planError").textContent=v||""}
 function niceError(v){const m=String(v||"");const map={delivery_time_outside_provider_window:"Choose a time inside this provider's delivery window.",subscription_product_unavailable:"This milk is not currently available for daily plans.",address_not_owned:"Choose one of your saved delivery addresses.",same_day_delivery_time_has_passed:"That time has already passed today. Choose tomorrow or a later date.",plan_has_no_delivery_days:"Choose at least one delivery day.",start_date_in_past:"Choose today or a future start date.",authentication_required:"Please sign in again.",subscription_change_cutoff_passed:"Your next delivery is too close to change this plan. Try again before the cutoff.",new_delivery_time_too_soon:"That delivery time is too close to now. Choose a later time.",subscription_not_editable:"This plan can no longer be edited.",pause_date_in_past:"Choose today or a future pause date.",no_subscription_changes:"Choose at least one change."};return map[m]||m.replace(/^.*?:/,"").replace(/_/g," ")||"Could not update the plan."}
+function setupPlansRealtime(user){
+ if(!window.Doodhwala?.configured||!user)return;
+ const existing=window.__doodhwalaPlansChannel;
+ if(existing&&window.__doodhwalaPlansChannelUser===user.id)return;
+ if(existing){try{sup.removeChannel(existing)}catch(_){}} 
+ const channel=sup.channel("customer-plans-"+user.id)
+  .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions",filter:"customer_id=eq."+user.id},function(){
+    if(document.visibilityState==="hidden")return;
+    clearTimeout(window.__plansRealtimeRefresh);window.__plansRealtimeRefresh=setTimeout(loadPlans,250);
+  })
+  .on("postgres_changes",{event:"*",schema:"public",table:"subscription_deliveries"},function(){
+    if(document.visibilityState==="hidden")return;
+    clearTimeout(window.__plansRealtimeRefresh);window.__plansRealtimeRefresh=setTimeout(loadPlans,250);
+  });
+ window.__doodhwalaPlansChannel=channel;
+ window.__doodhwalaPlansChannelUser=user.id;
+ channel.subscribe(function(status){
+  if(status==="SUBSCRIBED"){window.__plansRealtimeReconnectAttempt=0;return}
+  if(!["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(status))return;
+  const attempt=Math.min(6,Number(window.__plansRealtimeReconnectAttempt||0)+1);
+  window.__plansRealtimeReconnectAttempt=attempt;
+  clearTimeout(window.__plansRealtimeReconnectTimer);
+  const delay=Math.min(30000,1000*Math.pow(2,attempt-1));
+  window.__plansRealtimeReconnectTimer=setTimeout(function(){
+    if(window.__doodhwalaPlansChannel!==channel)return;
+    window.__doodhwalaPlansChannel=null;window.__doodhwalaPlansChannelUser=null;
+    try{sup.removeChannel(channel)}catch(_){}
+    setupPlansRealtime(user);
+    if(document.visibilityState!=="hidden")loadPlans().catch(function(err){console.warn("Plans realtime refresh failed",err)});
+  },delay);
+ });
+}
 async function loadContext(){
  try{
   if(!window.Doodhwala?.configured){$("plansState").textContent="Backend is not configured.";return}
@@ -34,12 +66,7 @@ async function loadContext(){
   addresses=addr.data||[];renderAddresses();
   if(providerId&&productId)await loadProductContext();
   else{$("createPlan").classList.remove("hidden");$("planProductTitle").textContent="Choose a milk product first";$("planProviderMeta").textContent="Open a provider from the shop and tap Plan to preselect it."}
-  if(!window.__doodhwalaPlansChannel){
-   window.__doodhwalaPlansChannel=sup.channel("customer-plans-"+user.id)
-    .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions",filter:"customer_id=eq."+user.id},()=>loadPlans())
-    .on("postgres_changes",{event:"*",schema:"public",table:"subscription_deliveries"},()=>loadPlans())
-    .subscribe();
-  }
+  setupPlansRealtime(user);
  }catch(err){console.error(err);$("plansState").textContent=String(err?.message||"Could not load your milk plans.");$("plansGate").classList.add("hidden");}
 }
 async function loadProductContext(){
@@ -66,7 +93,7 @@ async function createPlan(e){
  button.textContent="Plan started ✓";$("plansState").textContent="Your daily milk plan is active.";await loadPlans();setTimeout(()=>button.textContent="Start daily milk plan →",1600)
 }
 async function loadPlans(){
- const r=await sup.from("milk_subscriptions").select("id,status,quantity_litres,price_per_litre,delivery_time,start_date,end_date,days_of_week,cutoff_minutes,customer_note,paused_until,provider_id,product_id,address_id,provider_profiles(display_name,area_name,city,delivery_from,delivery_to),milk_products(name,milk_type),addresses(label,address_line,area_name,city,pin_code)").order("created_at",{ascending:false});
+ const r=await sup.from("milk_subscriptions").select("id,status,quantity_litres,price_per_litre,delivery_time,start_date,end_date,days_of_week,cutoff_minutes,customer_note,paused_until,provider_id,product_id,address_id,provider_profiles(display_name,area_name,city,delivery_from,delivery_to),milk_products(name,milk_type),addresses(label,address_line,area_name,city,pin_code)").eq("customer_id",user.id).order("created_at",{ascending:false});
  if(r.error){$("plansList").innerHTML='<div class="empty-plans">'+esc(r.error.message)+'</div>';return}
  const plans=r.data||[];if(!plans.length){$("plansList").innerHTML='<div class="empty-plans">No recurring plans yet.<br>Choose a local provider and tap <b>Plan</b> on their milk.</div>';return}
  const ids=plans.map(p=>p.id);const d=ids.length?await sup.from("subscription_deliveries").select("id,subscription_id,scheduled_for,delivery_date,quantity_litres,unit_price,status,order_id").in("subscription_id",ids).order("scheduled_for",{ascending:true}):{data:[]};const by={};(d.data||[]).forEach(x=>(by[x.subscription_id]??=[]).push(x));
@@ -113,4 +140,5 @@ async function planAction(action,id){
  if(r.error){alert(niceError(r.error.message));return}await loadPlans()
 }
 async function skipDelivery(id){const r=await sup.rpc("skip_milk_delivery",{p_delivery_id:id,p_reason:"Customer skipped"});if(r.error){alert(niceError(r.error.message));return}await loadPlans()}
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&user)loadPlans().catch(function(err){console.warn("Plans foreground refresh failed",err)})});
 $("planForm").onsubmit=createPlan;$("planQuantity").onchange=updatePreview;$("planStart").onchange=function(){if(!$("planEnd").value||$("planEnd").value<=$("planStart").value)$("planEnd").value=addDays($("planStart").value,29);updatePreview()};$("planEnd").onchange=updatePreview;$("refreshPlans").onclick=loadContext;setDays();loadContext();
