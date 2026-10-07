@@ -239,7 +239,7 @@ as $$
   where pp.owner_user_id=auth.uid()
     and sd.delivery_date=coalesce(p_delivery_date,current_date)
     and sd.status in('scheduled','materialized','delivered')
-  order by sd.scheduled_for, customer_name;
+  order by sd.scheduled_for, coalesce(a.recipient_name,'Customer');
 $$;
 
 revoke execute on function private.get_provider_delivery_route(date) from public,anon;
