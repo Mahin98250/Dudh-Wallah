@@ -116,6 +116,22 @@ $$;
 
 revoke all on function private.create_pending_provider_verification() from public, anon, authenticated;
 
+create or replace function private.is_approved_provider(p_provider_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public, private, pg_temp
+as $
+  select exists (
+    select 1
+    from public.provider_verifications
+    where provider_id = p_provider_id
+      and status = 'approved'
+  );
+$;
+
+revoke all on function private.is_approved_provider(uuid) from public, anon, authenticated;
+
 drop trigger if exists provider_verification_on_create on public.provider_profiles;
 create trigger provider_verification_on_create
 after insert on public.provider_profiles
@@ -127,11 +143,7 @@ on public.provider_profiles for select
 to anon, authenticated
 using (
   (select auth.uid()) = owner_user_id
-  or exists (
-    select 1 from public.provider_verifications pv
-    where pv.provider_id = provider_profiles.id
-      and pv.status = 'approved'
-  )
+  or private.is_approved_provider(provider_profiles.id)
 );
 
 drop policy if exists "provider_profiles_insert_own" on public.provider_profiles;
@@ -152,7 +164,7 @@ create policy "provider_verifications_select_public_or_owner"
 on public.provider_verifications for select
 to anon, authenticated
 using (
-  status = 'approved'
+  private.is_approved_provider(provider_verifications.provider_id)
   or exists (
     select 1 from public.provider_profiles pp
     where pp.id = provider_verifications.provider_id
@@ -183,10 +195,7 @@ using (
     where pp.id = provider_service_areas.provider_id
       and (
         pp.owner_user_id = (select auth.uid())
-        or exists (
-          select 1 from public.provider_verifications pv
-          where pv.provider_id = pp.id and pv.status = 'approved'
-        )
+        or private.is_approved_provider(pp.id)
       )
   )
 );
@@ -253,10 +262,7 @@ using (
           pp.is_active
           and milk_products.is_active
           and milk_products.stock
-          and exists (
-            select 1 from public.provider_verifications pv
-            where pv.provider_id = pp.id and pv.status = 'approved'
-          )
+          and private.is_approved_provider(pp.id)
         )
       )
   )
