@@ -24,3 +24,29 @@
 @media(max-width:760px){.route-date-actions{width:100%;justify-content:space-between}.route-date-actions button{flex:1}.route-date-line{display:block}.route-date-line span{display:block;margin-top:4px}.route-item{grid-template-columns:65px 1fr;gap:10px}.route-quantity{grid-column:2;text-align:left}.route-contact{margin-right:8px}}
 @media(max-width:680px){.provider-mobile-nav{grid-template-columns:repeat(6,1fr)}.provider-mobile-nav button{font-size:15px}.provider-mobile-nav small{font-size:7px}}
 .capacity-box{margin-top:14px;padding:15px;border:1px solid var(--line);border-radius:15px;background:#fff}.capacity-box>b,.capacity-box>div>b{display:block;font-size:11px}.capacity-box>div:first-child small{display:block;color:var(--muted);font-size:9px;margin-top:4px;line-height:1.5}.capacity-grid{margin-top:12px}.capacity-grid label small{font-size:8px;color:var(--muted);font-weight:600}.capacity-grid input{font-variant-numeric:tabular-nums}
+
+.provider-map-card{
+  background:#fff;border:1px solid var(--line);border-radius:17px;overflow:hidden;
+  box-shadow:var(--shadow-sm);
+}
+.provider-map-head{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:15px 16px;border-bottom:1px solid var(--line);
+}
+.provider-map-head b{display:block;font-family:Manrope,sans-serif;font-size:12px}
+.provider-map-head small{display:block;margin-top:4px;color:var(--muted);font-size:9px;line-height:1.45}
+.provider-map-head .secondary{white-space:nowrap;min-height:36px;padding:8px 11px}
+.provider-location-map{height:390px;background:#eef3ee}
+.provider-map-foot{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:10px 14px;color:var(--muted);font-size:9px;
+}
+.provider-map-foot b{color:var(--ink);font-size:9px}
+.provider-location-map .leaflet-control-attribution{font-size:8px}
+.provider-location-map .leaflet-popup-content{font-family:"DM Sans",system-ui,sans-serif;font-size:10px}
+@media(max-width:760px){
+  .provider-map-head{display:grid}
+  .provider-map-head .secondary{width:100%}
+  .provider-location-map{height:320px}
+  .provider-map-foot{display:grid;gap:4px}
+}
