@@ -42,13 +42,13 @@ function render(){
 }
 async function load(){
  setLocationLabel();
- if(!providerId||!productId){setState("Milk not found","Choose a product from a local provider.","/Dudh-Wallah/?view=providers","Explore providers →");return}
+ if(!providerId||!productId){setState("Milk not found","Choose a product from a local provider.",["/Dudh-Wallah/?view=providers","Explore providers →"]);return}
  if(!window.Doodhwala?.configured){setState("Marketplace unavailable","Supabase is not configured.");return}
  const pos=readLocation();
  const {data,error}=await sup().rpc("get_provider_storefront",{p_provider_id:providerId,p_latitude:pos?.latitude??null,p_longitude:pos?.longitude??null});
- if(error||!data?.[0]){setState("Product unavailable",error?.message||"This provider is not currently available.","/Dudh-Wallah/?view=providers","Back to Explore →");return}
+ if(error||!data?.[0]){setState("Product unavailable",error?.message||"This provider is not currently available.",["/Dudh-Wallah/?view=providers","Back to Explore →"]);return}
  store=data[0];product=(Array.isArray(store.products)?store.products:[]).find(p=>p.id===productId);
- if(!product){setState("Product not available","This milk is no longer active or in stock.","/Dudh-Wallah/store.html?provider="+encodeURIComponent(providerId),"Back to provider →");return}
+ if(!product){setState("Product not available","This milk is no longer active or in stock.",["/Dudh-Wallah/store.html?provider="+encodeURIComponent(providerId),"Back to provider →"]);return}
  render();
 }
 $("minus").onclick=()=>{qty=Math.max(1,qty-1);render()};
