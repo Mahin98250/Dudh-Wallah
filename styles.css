@@ -198,6 +198,7 @@ header{
 .provider-name{font-family:Manrope,sans-serif;font-size:14px;font-weight:800;letter-spacing:-.02em}
 .meta{font-size:9px;color:var(--muted);margin-top:5px}
 .verified{font-size:8px;color:var(--green);background:var(--green-soft);padding:5px 7px;border-radius:999px;height:max-content}
+.provider-actions{display:flex;align-items:center;gap:6px}.save-provider{width:29px;height:29px;border:1px solid var(--line);border-radius:9px;background:#fff;color:#758078;font-size:15px;display:grid;place-items:center;line-height:1;transition:background .18s,color .18s,border-color .18s,transform .18s}.save-provider:hover{background:var(--green-wash);border-color:#c8d8cc;color:var(--green)}.save-provider.saved{background:var(--green-soft);border-color:#c8e0cf;color:var(--green)}.save-provider:active{transform:scale(.92)}
 .milk{display:grid;gap:7px;margin-top:14px}
 .milk-row{
   display:flex;justify-content:space-between;align-items:center;gap:8px;
