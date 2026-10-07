@@ -63,7 +63,7 @@ as $$
         6371.0*2*asin(sqrt(
           power(sin(radians(psa.latitude-p_latitude)/2),2)+
           cos(radians(p_latitude))*cos(radians(psa.latitude))*
-          power(sin(radians(p_latitude-p_latitude)/2),2)
+          power(sin(radians(psa.longitude-p_longitude)/2),2)
         )) end distance_km
     from public.provider_profiles pp join public.provider_service_areas psa on psa.provider_id=pp.id
     where pp.id=p_provider_id and pp.is_active and pp.accepting_orders
