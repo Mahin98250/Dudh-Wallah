@@ -46,3 +46,12 @@ begin
     end if;
   end loop;
 end $$;
+
+-- Remove the legacy customer order RPC overload that generated a new
+-- idempotency key on every call, which made retries/non-idempotent clients unsafe.
+drop function if exists public.create_order(uuid, uuid, jsonb, text);
+
+-- Keep the deprecated private implementation callable only by the database
+-- owner; customer traffic must use the idempotent five-argument implementation.
+revoke execute on function private.create_order_secure(uuid, uuid, jsonb, text)
+from authenticated, service_role;
