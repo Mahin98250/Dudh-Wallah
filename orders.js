@@ -53,11 +53,40 @@ async function cancelOrder(id,button){
  if(error){button.disabled=false;button.textContent="Cancel order";$("ordersState").textContent=error.message;return}
  await loadOrders();$("ordersState").textContent="Order cancelled successfully.";
 }
+function setupOrdersRealtime(user){
+ if(!window.Doodhwala?.configured||!user)return;
+ const existing=window.__doodhwalaOrdersChannel;
+ if(existing&&window.__doodhwalaOrdersChannelUser===user.id)return;
+ if(existing){try{Doodhwala.supabase.removeChannel(existing)}catch(_){}} 
+ const channel=Doodhwala.supabase.channel("customer-orders-"+user.id)
+  .on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"customer_id=eq."+user.id},function(){
+    if(document.visibilityState==="hidden")return;
+    clearTimeout(window.__ordersRealtimeRefresh);
+    window.__ordersRealtimeRefresh=setTimeout(loadOrders,250);
+  });
+ window.__doodhwalaOrdersChannel=channel;
+ window.__doodhwalaOrdersChannelUser=user.id;
+ channel.subscribe(function(status){
+  if(status==="SUBSCRIBED"){window.__ordersRealtimeReconnectAttempt=0;return}
+  if(!["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(status))return;
+  const attempt=Math.min(6,Number(window.__ordersRealtimeReconnectAttempt||0)+1);
+  window.__ordersRealtimeReconnectAttempt=attempt;
+  clearTimeout(window.__ordersRealtimeReconnectTimer);
+  const delay=Math.min(30000,1000*Math.pow(2,attempt-1));
+  window.__ordersRealtimeReconnectTimer=setTimeout(function(){
+    if(window.__doodhwalaOrdersChannel!==channel)return;
+    window.__doodhwalaOrdersChannel=null;window.__doodhwalaOrdersChannelUser=null;
+    try{Doodhwala.supabase.removeChannel(channel)}catch(_){}
+    setupOrdersRealtime(user);
+    if(document.visibilityState!=="hidden")loadOrders().catch(function(err){console.warn("Orders realtime refresh failed",err)});
+  },delay);
+ });
+}
 async function loadOrders(){
  if(!window.Doodhwala?.configured){$("ordersState").textContent="Supabase is not configured.";return}
  const {data:userData}=await Doodhwala.supabase.auth.getUser(),user=userData?.user;
  if(!user){$("ordersState").textContent="";$("ordersGate").classList.remove("hidden");$("ordersList").classList.add("hidden");return}
- $("ordersGate").classList.add("hidden");$("ordersList").classList.remove("hidden");$("ordersState").textContent="Loading your latest orders…";if(!window.__doodhwalaOrdersChannel){window.__doodhwalaOrdersChannel=Doodhwala.supabase.channel("customer-orders-"+user.id).on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"customer_id=eq."+user.id},function(){clearTimeout(window.__ordersRealtimeRefresh);window.__ordersRealtimeRefresh=setTimeout(loadOrders,250)}).subscribe()}
+ $("ordersGate").classList.add("hidden");$("ordersList").classList.remove("hidden");$("ordersState").textContent="Loading your latest orders…";setupOrdersRealtime(user);
  const result=await Doodhwala.supabase.from("orders").select("id,status,subtotal,delivery_fee,total,customer_note,created_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,acceptance_deadline_at,estimated_delivery_min_minutes,estimated_delivery_max_minutes,promised_delivery_at,late_after_at,provider_id,provider_profiles(display_name,area_name,city),order_items(product_name_snapshot,quantity,unit_price,line_total),order_ratings(stars,comment)").eq("customer_id",user.id).order("created_at",{ascending:false}).limit(50);
  if(result.error){$("ordersState").textContent=result.error.message;return}
  const orders=result.data||[];const eventResult=orders.length?await Doodhwala.supabase.from("order_status_events").select("order_id,from_status,to_status,reason,created_at").in("order_id",orders.map(o=>o.id)).order("created_at",{ascending:true}):{data:[]};
@@ -81,4 +110,5 @@ async function loadOrders(){
    button.addEventListener("click",function(){rateOrder(button.dataset.rateOrder,button.dataset.rateStars,button)});
  });
 }
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")loadOrders().catch(function(err){console.warn("Orders foreground refresh failed",err)})});
 $("refreshOrders").onclick=loadOrders;clearInterval(window.__orderPromiseTimer);window.__orderPromiseTimer=setInterval(refreshOrderPromises,1000);loadOrders();
