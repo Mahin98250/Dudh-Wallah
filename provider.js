@@ -135,9 +135,11 @@ function setupProviderRouteRealtime(user,providerId){
  };
  const channel=Doodhwala.supabase.channel("provider-route-"+user.id)
    .on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"provider_owner_id=eq."+user.id},refresh)
-   .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions",filter:providerId?"provider_id=eq."+providerId:undefined},refresh)
-   .on("postgres_changes",{event:"*",schema:"public",table:"subscription_deliveries"},refresh)
-   .subscribe();
+   .on("postgres_changes",{event:"*",schema:"public",table:"subscription_deliveries"},refresh);
+ if(providerId){
+   channel.on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions",filter:"provider_id=eq."+providerId},refresh);
+ }
+ channel.subscribe();
  window.__doodhwalaProviderRouteChannel=channel;
 }
 
