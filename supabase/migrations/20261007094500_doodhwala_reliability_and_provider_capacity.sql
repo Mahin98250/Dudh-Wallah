@@ -230,7 +230,7 @@ begin
     perform cron.schedule(
       'doodhwala-expire-unaccepted-orders',
       '* * * * *',
-      $$select public.expire_unaccepted_orders();$$
+      $cron$select public.expire_unaccepted_orders();$cron$
     );
   end if;
 end
