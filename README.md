@@ -50,7 +50,7 @@ The repository now contains the real marketplace backend contract and customer a
 - Checkout → order creation flow
 - Setup instructions in SUPABASE_SETUP.md
 
-The Doodhwala Supabase project itself has not yet been provisioned. Until credentials are added, the UI intentionally continues to use demo provider data.
+The Doodhwala Supabase project is provisioned and the production browser client is connected with the publishable key. Public provider inventory still requires provider onboarding plus approval.
 
 ## First MVP in this repository
 
