@@ -13,6 +13,13 @@ try{cart=JSON.parse(localStorage.getItem("doodhwala-cart")||"{}")}catch(_){cart=
 
 const $=id=>document.getElementById(id);
 const grid=$("providersGrid"),cartCount=$("cartCount"),mobileCartCount=$("mobileCartCount"),cartItems=$("cartItems"),empty=$("empty"),summary=$("summary");
+function installDiscoveryStyles(){
+ if(document.getElementById("doodhwalaDiscoveryStyles"))return;
+ const style=document.createElement("style");style.id="doodhwalaDiscoveryStyles";
+ style.textContent=".discover-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:8px 0}.discover-toolbar span{font-size:9px;color:var(--muted)}.discover-toolbar select{height:34px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:0 10px;font-size:9px;color:var(--ink);outline:0}.provider-live{cursor:default}.provider-live .cover{cursor:pointer}.provider-distance{position:absolute;right:10px;top:10px;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.94);border:1px solid rgba(226,232,225,.9);font-size:7px;font-weight:800}.service-good{color:#17603f}.service-bad{color:#a3483e}.service-neutral{color:#6f7c73}.service-warning{margin-top:9px;padding:8px 9px;background:#fff4ef;border:1px solid #f0ddd7;border-radius:10px;color:#a3483e;font-size:8px}.milk-open{flex:1;min-width:0;border:0;background:transparent;text-align:left;padding:0;cursor:pointer;color:inherit}.store-link{border:0;background:transparent;color:var(--green);font-size:8px;font-weight:900;padding:3px;cursor:pointer}.no-results .primary{margin-top:8px}@media(max-width:760px){.discover-toolbar{padding-top:8px}.discover-toolbar select{height:36px}.provider-distance{font-size:6.5px}}";
+ document.head.appendChild(style);
+}
+installDiscoveryStyles();
 
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function money(value){return "₹"+Number(value||0).toLocaleString("en-IN",{maximumFractionDigits:2})}
