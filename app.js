@@ -60,6 +60,9 @@ async function loadRemoteProviders(lat=null,lng=null){
    return {
      id:row.provider_id,
      providerId:row.provider_id,
+     latitude:Number(row.latitude),
+     longitude:Number(row.longitude),
+     distanceKm:row.distance_km!=null?Number(row.distance_km):null,
      name:row.provider_name,
      area:(row.area_name||"Local area")+" • "+(row.distance_km!=null?row.distance_km+" km":"Nearby"),
      tag:(row.milk_type||"mixed")+" milk",
@@ -74,7 +77,9 @@ async function loadRemoteProviders(lat=null,lng=null){
      milks:products.map(function(p){return [p.name,"₹"+Number(p.price_per_litre).toLocaleString("en-IN")+" / L"]})
    };
  });
+ window.providers=providers;
  render();
+ window.dispatchEvent(new Event("doodhwala:providers-updated"));
 }
 async function initRemoteBackend(){
  if(!window.Doodhwala?.configured)return;
