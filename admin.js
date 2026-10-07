@@ -32,6 +32,7 @@ function renderOverview(){
  ["CUSTOMERS",overview.customers,"Registered accounts"],
  ["PROVIDERS",overview.providers,(overview.approved_providers||0)+" approved"],
  ["CANCELLED",overview.cancelled_orders,"Period orders"],
+ ["LATE",overview.late_orders||0,"Active orders past promise"],
  ["DELIVERY RATE",((overview.orders?overview.completed_orders/overview.orders*100:0).toFixed(1))+"%","Delivered / placed"]
  ].map(x=>'<div class="metric"><small>'+x[0]+'</small><b>'+x[1]+'</b><span>'+x[2]+'</span></div>').join("")+'</div><div class="admin-grid"><article class="admin-card"><h3>Daily sales</h3>'+(days.length?days.map(x=>'<div class="bar-row"><span>'+dateText(x.day)+'</span><div class="bar"><i style="width:'+Math.round(Number(x.sales)/max*100)+'%"></i></div><b>'+money(x.sales)+'</b></div>').join(""):'<div class="empty-admin">No sales in this period.</div>')+'</article><article class="admin-card"><h3>Provider performance</h3>'+(top.length?'<table class="table"><thead><tr><th>Provider</th><th>Delivered</th><th>Sales</th></tr></thead><tbody>'+top.map(x=>'<tr><td>'+esc(x.provider_name)+'</td><td>'+x.delivered_orders+'</td><td>'+money(x.sales)+'</td></tr>').join("")+'</tbody></table>':'<div class="empty-admin">No provider sales yet.</div>')+'</article></div><div class="admin-card" style="margin-top:12px"><h3>Owner accounting note</h3><div class="admin-note">Gross sales is marketplace GMV from delivered orders. It is not profit. Provider commissions, delivery costs, payment fees and refunds need a separate ledger before profit is shown.</div></div></div>';
 }
