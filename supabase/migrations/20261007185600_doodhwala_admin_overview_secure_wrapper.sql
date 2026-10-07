@@ -21,14 +21,26 @@ begin
     'gross_sales',(select coalesce(round(sum(total),2),0) from public.orders where status='delivered' and created_at>=p_from::timestamptz and created_at<(p_to+1)::timestamptz),
     'active_subscriptions',(select count(*) from public.milk_subscriptions where status='active'),
     'scheduled_deliveries',(select count(*) from public.subscription_deliveries where status='scheduled' and delivery_date between p_from and p_to),
-    'milk_litres_delivered',(select coalesce(round(sum(oi.quantity),2),0) from public.order_items oi join public.orders o on o.id=oi.order_id where o.status='delivered' and o.created_at>=p_from::timestamptz and o.created_at<(p_to+1)::timestamptz)
+    'milk_litres_delivered',(select coalesce(round(sum(oi.quantity),2),0) from public.order_items oi join public.orders o on o.id=oi.order_id where o.status='delivered' and o.created_at>=p_from::timestamptz and o.created_at<(p_to+1)::timestamptz),
+    'daily_sales',coalesce((select jsonb_agg(row_to_json(x) order by x.sales_day) from (
+      select (created_at at time zone 'Asia/Kolkata')::date as sales_day,
+        round(coalesce(sum(total) filter(where status='delivered'),0),2) as sales,count(*) as orders
+      from public.orders where created_at>=p_from::timestamptz and created_at<(p_to+1)::timestamptz group by 1
+    ) x),'[]'::jsonb),
+    'provider_sales',coalesce((select jsonb_agg(row_to_json(x) order by x.sales desc) from (
+      select o.provider_id,pp.display_name as provider_name,
+        round(coalesce(sum(o.total) filter(where o.status='delivered'),0),2) as sales,
+        count(*) filter(where o.status='delivered') delivered_orders
+      from public.orders o join public.provider_profiles pp on pp.id=o.provider_id
+      where o.created_at>=p_from::timestamptz and o.created_at<(p_to+1)::timestamptz
+      group by o.provider_id,pp.display_name
+    ) x),'[]'::jsonb)
   ) into v_result;
   return v_result;
 end $$;
 
 revoke all on function private.admin_get_overview_impl(date,date) from public,anon,authenticated;
--- Keep the existing complete admin overview JSON implementation from the prior migration;
--- this file's wrapper is applied live after the complete implementation.
+
 create or replace function public.get_admin_overview(
   p_from date default (current_date-29),p_to date default current_date
 )
