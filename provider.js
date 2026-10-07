@@ -152,6 +152,25 @@ function refreshOrderDeadlines(){
  });
 }
 function orderActions(order){const s=order.status;const actions=[];if(s==="placed"){actions.push(["accepted","Accept order","primary-action"],["rejected","Decline","danger-action"])}else if(s==="accepted"){actions.push(["preparing","Start packing","primary-action"],["cancelled","Cancel","danger-action"])}else if(s==="preparing"){actions.push(["ready","Mark ready","primary-action"],["cancelled","Cancel","danger-action"])}else if(s==="ready"){actions.push(["out_for_delivery","Out for delivery","primary-action"],["cancelled","Cancel","danger-action"])}else if(s==="out_for_delivery"){actions.push(["delivered","Mark delivered","primary-action"])}return actions.map(a=>'<button class="'+a[2]+'" data-order-status="'+a[0]+'" data-order-id="'+order.id+'">'+a[1]+"</button>").join("")}
+function renderOrderKpis(orders){
+ const k=$("providerOrderKpis");if(!k)return;
+ const action=orders.filter(o=>o.status==="placed").length;
+ const active=orders.filter(o=>["accepted","preparing","ready","out_for_delivery"].includes(o.status)).length;
+ const delivered=orders.filter(o=>o.status==="delivered" && new Date(o.created_at).toDateString()===new Date().toDateString()).length;
+ const litres=orders.reduce((sum,o)=>(o.status==="delivered" && new Date(o.created_at).toDateString()===new Date().toDateString())?
+   sum+(o.order_items||[]).reduce((s,i)=>s+Number(i.quantity||0),0):sum,0);
+ k.innerHTML='<div class="order-kpi"><small>NEEDS ACTION</small><b>'+action+'</b><span>New orders</span></div>'+
+   '<div class="order-kpi"><small>ACTIVE</small><b>'+active+'</b><span>In delivery flow</span></div>'+
+   '<div class="order-kpi"><small>DELIVERED TODAY</small><b>'+delivered+'</b><span>Completed orders</span></div>'+
+   '<div class="order-kpi"><small>MILK TODAY</small><b>'+litres.toLocaleString("en-IN",{maximumFractionDigits:2})+' L</b><span>Delivered quantity</span></div>';
+}
+function filterProviderOrders(orders){
+ const mode=$("orderFilter")?.value||"all";
+ if(mode==="action")return orders.filter(o=>o.status==="placed");
+ if(mode==="active")return orders.filter(o=>["placed","accepted","preparing","ready","out_for_delivery"].includes(o.status));
+ if(mode==="completed")return orders.filter(o=>["delivered","rejected","cancelled"].includes(o.status));
+ return orders;
+}
 async function loadProviderOrders(){
  const state=$("providerOrderState"),list=$("providerOrders");if(!state||!list)return;
  if(!window.Doodhwala?.configured){state.textContent="Supabase is not configured.";list.innerHTML="";return}
@@ -171,9 +190,15 @@ async function loadProviderOrders(){
 }
  const result=await Doodhwala.supabase.from("orders").select("id,status,status_reason,subtotal,delivery_fee,total,customer_note,created_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,order_items(product_name_snapshot,quantity,unit_price,line_total)").eq("provider_id",profile.data.id).order("created_at",{ascending:false}).limit(50);
  if(result.error){state.textContent=result.error.message;list.innerHTML="";return}
- const orders=result.data||[];state.textContent=orders.length?orders.length+" order"+(orders.length===1?"":"s")+" in your queue":"No live orders yet";
- if(!orders.length){list.innerHTML='<div class="order-empty"><b>Your order queue is clear.</b>New customer orders will appear here automatically after checkout.</div>';return}
- list.innerHTML=orders.map(function(o){const deadline=o.status==="placed"?orderDeadline(o.created_at,profile.data.acceptance_timeout_minutes):null;return '<article class="provider-order"><div class="provider-order-head"><div><div class="provider-order-id">Order '+escapeHtml(o.id)+'</div><div class="provider-order-time">'+escapeHtml(orderTime(o.created_at))+'</div></div><div class="order-head-status"><span class="order-status '+escapeHtml(o.status)+'">'+escapeHtml(orderStatusLabel(o.status))+'</span>'+(deadline?'<span class="order-deadline'+(deadline.urgent?' urgent':'')+'" data-order-deadline data-order-created="'+escapeHtml(o.created_at)+'" data-order-timeout="'+escapeHtml(profile.data.acceptance_timeout_minutes)+'">'+escapeHtml(deadline.label)+'</span>':"")+'</div></div><div class="provider-order-grid"><div class="order-panel"><small>Customer</small><b>'+escapeHtml(o.delivery_recipient_name||"Customer")+'</b><span>'+escapeHtml(o.delivery_phone||"No phone")+'</span></div><div class="order-panel"><small>Delivery</small><b>'+escapeHtml(o.delivery_address_line||"Address unavailable")+'</b><span>'+escapeHtml([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", "))+'</span></div></div><div class="order-items">'+(o.order_items||[]).map(function(i){return '<div class="order-item"><span>'+escapeHtml(i.product_name_snapshot)+' × '+i.quantity+'</span><b>'+orderMoney(i.line_total)+'</b></div>'}).join("")+'</div><div class="provider-order-head" style="margin-top:14px"><b>Total '+orderMoney(o.total)+'</b><span>'+escapeHtml(o.customer_note||"No customer note")+'</span></div><div class="order-actions">'+orderActions(o)+'</div></article>'}).join("");
+ const orders=result.data||[];
+ renderOrderKpis(orders);
+ const filteredOrders=filterProviderOrders(orders);
+ const actionCount=orders.filter(o=>o.status==="placed").length;
+ state.textContent=orders.length
+   ? orders.length+" order"+(orders.length===1?"":"s")+" in your queue"+(actionCount?" · "+actionCount+" need"+(actionCount===1?"s":"")+" your response":"")
+   : "No live orders yet";
+ if(!filteredOrders.length){list.innerHTML='<div class="order-empty"><b>'+(orders.length?"No orders match this filter.":"Your order queue is clear.")+'</b>'+(orders.length?"Try another queue filter.":"New customer orders will appear here automatically after checkout.")+'</div>';return}
+ list.innerHTML=filteredOrders.map(function(o){const deadline=o.status==="placed"?orderDeadline(o.created_at,profile.data.acceptance_timeout_minutes):null;return '<article class="provider-order"><div class="provider-order-head"><div><div class="provider-order-id">Order '+escapeHtml(o.id)+'</div><div class="provider-order-time">'+escapeHtml(orderTime(o.created_at))+'</div></div><div class="order-head-status"><span class="order-status '+escapeHtml(o.status)+'">'+escapeHtml(orderStatusLabel(o.status))+'</span>'+(deadline?'<span class="order-deadline'+(deadline.urgent?' urgent':'')+'" data-order-deadline data-order-created="'+escapeHtml(o.created_at)+'" data-order-timeout="'+escapeHtml(profile.data.acceptance_timeout_minutes)+'">'+escapeHtml(deadline.label)+'</span>':"")+'</div></div><div class="provider-order-grid"><div class="order-panel"><small>Customer</small><b>'+escapeHtml(o.delivery_recipient_name||"Customer")+'</b><span>'+escapeHtml(o.delivery_phone||"No phone")+'</span></div><div class="order-panel"><small>Delivery</small><b>'+escapeHtml(o.delivery_address_line||"Address unavailable")+'</b><span>'+escapeHtml([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", "))+'</span></div></div><div class="order-items">'+(o.order_items||[]).map(function(i){return '<div class="order-item"><span>'+escapeHtml(i.product_name_snapshot)+' × '+i.quantity+'</span><b>'+orderMoney(i.line_total)+'</b></div>'}).join("")+'</div><div class="provider-order-head" style="margin-top:14px"><b>Total '+orderMoney(o.total)+'</b><span>'+escapeHtml(o.customer_note||"No customer note")+'</span></div><div class="order-actions">'+orderActions(o)+'</div></article>'}).join("");
  list.querySelectorAll("[data-order-status]").forEach(function(button){
   button.onclick=async function(){
     button.disabled=true;
@@ -194,6 +219,7 @@ async function loadProviderOrders(){
   }
 })
 }
+$("orderFilter")?.addEventListener("change",loadProviderOrders);
 $("refreshOrders")?.addEventListener("click",loadProviderOrders);
 clearInterval(window.__providerDeadlineTimer);window.__providerDeadlineTimer=setInterval(refreshOrderDeadlines,1000);
 async function signOutProvider(event){
