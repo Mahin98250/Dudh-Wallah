@@ -124,6 +124,22 @@ function routeClock(v){try{return new Intl.DateTimeFormat("en-IN",{timeZone:"Asi
 function routeDeliveryLabel(d){if(d.delivery_status==="delivered"||d.order_status==="delivered")return["Delivered","done"];if(d.delivery_status==="materialized"&&d.order_status)return[orderStatusLabel(d.order_status),"live"];if(d.delivery_status==="materialized")return["Order created","live"];return["Scheduled","warn"]}
 function routeSummary(rows){const active=rows.filter(r=>r.delivery_status==="scheduled"||r.delivery_status==="materialized"||r.delivery_status==="delivered");const litres=active.reduce((sum,r)=>sum+Number(r.quantity_litres||0),0);const customers=new Set(active.map(r=>r.customer_id)).size;const orders=active.filter(r=>r.order_id).length;return {active,litres,customers,orders}}
 let routeDate=localIsoDate();
+async function loadProviderDispatchBoard(dateValue=routeDate){
+ const state=$("dispatchSummary"),list=$("dispatchList");if(!state||!list)return;
+ if(!window.Doodhwala?.configured){state.textContent="Dispatch backend unavailable.";list.innerHTML="";return}
+ const r=await Doodhwala.supabase.rpc("get_provider_dispatch_board",{p_delivery_date:dateValue||localIsoDate()});
+ if(r.error){state.textContent=r.error.message;list.innerHTML="";return}
+ const rows=r.data||[],active=rows.filter(x=>["placed","accepted","preparing","ready","out_for_delivery"].includes(x.status));
+ const late=active.filter(x=>x.late_after_at&&Date.now()>new Date(x.late_after_at).getTime()).length;
+ const litres=active.reduce((s,x)=>s+Number(x.litres||0),0);
+ state.textContent=active.length+" active stop"+(active.length===1?"":"s")+" · "+litres.toLocaleString("en-IN",{maximumFractionDigits:2})+" L"+(late?" · "+late+" late":"");
+ if(!active.length){list.innerHTML='<div class="dispatch-empty"><b>No active deliveries for '+escapeHtml(routeDateText(dateValue||localIsoDate()).toLowerCase())+'.</b><span>Orders appear here as customers place them and providers accept them.</span></div>';return}
+ list.innerHTML=active.map(function(o,idx){
+   const lateNow=o.late_after_at&&Date.now()>new Date(o.late_after_at).getTime();
+   const promiseLabel=o.estimated_delivery_min_minutes&&o.estimated_delivery_max_minutes?o.estimated_delivery_min_minutes+"–"+o.estimated_delivery_max_minutes+" min":"Awaiting ETA";
+   return '<article class="dispatch-item '+(lateNow?'late':'')+'"><div class="dispatch-rank">'+String(idx+1).padStart(2,"0")+'</div><div class="dispatch-main"><div class="dispatch-top"><b>'+escapeHtml(o.customer_name||"Customer")+'</b><span class="order-status '+escapeHtml(o.status)+'">'+escapeHtml(orderStatusLabel(o.status))+'</span></div><div class="dispatch-location">'+escapeHtml([o.area_name,o.city,o.pin_code].filter(Boolean).join(", ")||o.address_line||"Address unavailable")+'</div><div class="dispatch-meta"><span>'+escapeHtml(Number(o.litres||0).toLocaleString("en-IN",{maximumFractionDigits:2}))+' L</span><span>'+escapeHtml(o.is_subscription?"Recurring":"One-time")+'</span>'+(o.distance_km!=null?'<span>'+escapeHtml(Number(o.distance_km).toFixed(1))+' km</span>':"")+'<span>'+escapeHtml(promiseLabel)+'</span>'+(lateNow?'<strong>Late</strong>':"")+'</div></div><div class="dispatch-contact">'+(o.customer_phone?'<a href="tel:'+encodeURIComponent(o.customer_phone)+'">☎</a>':"")+'</div></article>'
+ }).join("");
+}
 async function loadProviderRoute(dateValue=routeDate){
  const state=$("routeSummary"),list=$("routeList"),kpis=$("routeKpis"),dateEl=$("routeDate");if(!state||!list)return;
  routeDate=dateValue||localIsoDate();if(dateEl)dateEl.textContent=routeDateText(routeDate);
@@ -134,7 +150,9 @@ async function loadProviderRoute(dateValue=routeDate){
  kpis.innerHTML='<div class="route-kpi"><small>CUSTOMERS</small><b>'+s.customers+'</b></div><div class="route-kpi"><small>TOTAL LITRES</small><b>'+Number(s.litres).toLocaleString("en-IN",{maximumFractionDigits:2})+' L</b></div><div class="route-kpi"><small>DELIVERIES</small><b>'+s.active.length+'</b></div><div class="route-kpi"><small>ORDERS CREATED</small><b>'+s.orders+'</b></div>';
  if(!s.active.length){list.innerHTML='<div class="route-empty"><b>No recurring milk run for '+routeDateText(routeDate).toLowerCase()+'.</b><p>When customers have an active daily plan for this date, each stop will appear here automatically.</p></div>';return}
  list.innerHTML=s.active.map(function(d){const status=routeDeliveryLabel(d);const location=[d.area_name,d.city,d.pin_code].filter(Boolean).join(", ");return '<article class="route-item"><div class="route-time">'+escapeHtml(routeClock(d.scheduled_for))+'<small>DELIVERY SLOT</small></div><div class="route-customer"><b>'+escapeHtml(d.customer_name||"Customer")+'</b><span>'+escapeHtml(location||d.address_line||"Address unavailable")+'</span><div class="route-meta"><span class="route-chip">'+escapeHtml(d.product_name||"Milk")+'</span><span class="route-chip">'+escapeHtml(d.address_line||"Address")+'</span><span class="route-chip '+status[1]+'">'+escapeHtml(status[0])+'</span></div>'+(d.customer_phone?'<a class="route-contact" href="tel:'+encodeURIComponent(d.customer_phone)+'">☎ '+escapeHtml(d.customer_phone)+'</a>':"")+'</div><div class="route-quantity"><b>'+Number(d.quantity_litres).toLocaleString("en-IN",{maximumFractionDigits:2})+' L</b><small>'+escapeHtml(d.milk_type||"Milk")+'</small></div></article>'}).join("");
+ loadProviderDispatchBoard(routeDate).catch(function(err){console.warn("Dispatch board failed",err)});
 }
+$("refreshDispatch")?.addEventListener("click",function(){loadProviderDispatchBoard(routeDate)});
 ["routePrev","routeNext","routeToday"].forEach(function(id){$(id)?.addEventListener("click",function(){if(id==="routePrev")routeDate=addIsoDate(routeDate,-1);else if(id==="routeNext")routeDate=addIsoDate(routeDate,1);else routeDate=localIsoDate();loadProviderRoute(routeDate)})});
 
 function orderDeadline(createdAt,timeoutMinutes){
