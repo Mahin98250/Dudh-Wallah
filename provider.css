@@ -51,4 +51,4 @@
   .provider-map-foot{display:grid;gap:4px}
 }
 
-.provider-top-signout{display:none;border:1px solid rgba(23,90,60,.16);background:#fff;color:#175a3c;border-radius:10px;padding:8px 10px;font:700 10px "DM Sans",sans-serif;cursor:pointer;white-space:nowrap}.provider-top-signout:hover{background:#f2f7f3}@media(max-width:760px){.provider-top-signout{display:inline-flex;align-items:center;justify-content:center}}
+.provider-top-signout{display:none;border:1px solid rgba(23,90,60,.16);background:#fff;color:#175a3c;border-radius:10px;padding:8px 10px;font:700 10px "DM Sans",sans-serif;cursor:pointer;white-space:nowrap}.provider-top-signout:hover{background:#f2f7f3}@media(max-width:760px){.provider-top-actions .provider-top-signout{display:inline-flex;align-items:center;justify-content:center}}
