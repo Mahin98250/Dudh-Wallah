@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#175a3c"><title>Doodhwala — Milk</title><link rel="icon" href="/Dudh-Wallah/assets/logo.svg">
+<link rel="stylesheet" href="/Dudh-Wallah/styles.css"><link rel="stylesheet" href="/Dudh-Wallah/market.css"></head>
+<body class="market-page">
+<header class="market-top">
+<a href="/Dudh-Wallah/" class="market-brand"><img src="/Dudh-Wallah/assets/logo.svg" alt=""><div><b>Doodhwala</b><small>Local milk, nearby.</small></div></a>
+<a href="/Dudh-Wallah/?openLocation=1" class="market-location"><span class="market-location-icon">⌖</span><span class="market-location-copy"><small>DELIVERING TO</small><b id="marketLocationLabel">Choose location</b></span></a>
+<a id="productBack" class="market-back" href="/Dudh-Wallah/">← Shop</a>
+</header>
+<main class="market-main"><div class="market-breadcrumb"><a href="/Dudh-Wallah/">Home</a><span>›</span><a id="providerLink" href="#">Provider</a><span>›</span><span id="productCrumb">Milk</span></div>
+<div id="productState"></div>
+<section id="productContent" class="hidden product-detail">
+<div class="product-visual"><div id="productEmoji" class="product-visual-emoji">🥛</div></div>
+<article class="product-info">
+<span class="store-badge">✓ Live catalogue</span>
+<h1 id="productName">Milk</h1><p class="lead" id="productLead"></p>
+<div class="price-row"><b id="productPrice">₹0</b><span id="productUnit">per litre</span></div>
+<div id="locationService" class="location-service-card"><b id="locationServiceTitle">Delivery availability</b><p id="locationServiceCopy">Set your delivery location to check this provider.</p></div>
+<div class="buy-box"><div class="buy-row"><div><small style="display:block;color:#6f7c73;font-size:8px">QUANTITY</small><div class="stepper"><button id="minus" type="button">−</button><b id="quantity">1</b><button id="plus" type="button">+</button></div></div><div style="text-align:right"><small style="display:block;color:#6f7c73;font-size:8px">TOTAL</small><b id="buyTotal" class="buy-total">₹0</b></div></div><div class="buy-actions"><button class="primary" id="addToCart" type="button">Add to cart</button><a class="secondary" id="planLink" href="#">Start daily plan</a></div></div>
+<div class="detail-list"><div class="detail-row"><span>Provider</span><b id="detailProvider">Local provider</b></div><div class="detail-row"><span>Milk type</span><b id="detailType">Milk</b></div><div class="detail-row"><span>Delivery window</span><b id="detailWindow">Local route</b></div><div class="detail-row"><span>Service radius</span><b id="detailRadius">—</b></div></div>
+</article></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.min.js"></script><script src="/Dudh-Wallah/supabase-config.js"></script><script src="/Dudh-Wallah/supabase-client.js"></script>
+<script src="/Dudh-Wallah/product.js"></script><script src="/Dudh-Wallah/customer-nav.js"></script>
+</body></html>
