@@ -164,7 +164,8 @@ async function loadProviderOrders(){
   }
 })
 }
-$("refreshOrders")?.addEventListener("click",loadProviderOrders);\nclearInterval(window.__providerDeadlineTimer);window.__providerDeadlineTimer=setInterval(refreshOrderDeadlines,1000);
+$("refreshOrders")?.addEventListener("click",loadProviderOrders);
+clearInterval(window.__providerDeadlineTimer);window.__providerDeadlineTimer=setInterval(refreshOrderDeadlines,1000);
 async function signOutProvider(event){
  if(event){event.preventDefault();event.stopPropagation();}
  const buttons=[$("providerSignout"),$("providerTopSignout")].filter(Boolean);
