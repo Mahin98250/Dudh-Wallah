@@ -47,4 +47,7 @@ $("placeOrder").onclick=async()=>{
   localStorage.removeItem(CART_KEY);$("checkoutForm").classList.add("hidden");$("success").classList.remove("hidden");$("successText").textContent=orderIds.length===1?"Order "+orderIds[0]+" has been created.":"We created "+orderIds.length+" provider orders from your cart."; $("successOrders").innerHTML=orderIds.map(id=>'<div class="success-order"><b>Order '+escapeHtml(id)+'</b><br><span>Placed • awaiting provider acceptance</span></div>').join("")
  }catch(err){showError(friendlyOrderError(err.message));$("placeOrder").disabled=false;$("placeOrder").textContent="Place local milk order →"}
 };
-load();\nsyncCheckoutLocation();\n
+load();
+syncCheckoutLocation();
+window.addEventListener("pageshow",syncCheckoutLocation);
+window.addEventListener("storage",syncCheckoutLocation);
