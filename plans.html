@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#175a3c">
+<meta name="description" content="Doodhwala recurring milk plans.">
+<title>Doodhwala — Milk Plans</title>
+<link rel="icon" href="/Dudh-Wallah/assets/logo.svg">
+<link rel="stylesheet" href="/Dudh-Wallah/styles.css">
+<link rel="stylesheet" href="/Dudh-Wallah/plans.css">
+</head>
+<body class="plans-page">
+<header class="plans-top">
+<a href="/Dudh-Wallah/" class="plans-brand"><img src="/Dudh-Wallah/assets/logo.svg" alt=""><div><b>Doodhwala</b><small>Local milk, nearby.</small></div></a>
+<a href="/Dudh-Wallah/" class="back-shop">← Shop milk</a>
+</header>
+<main class="plans-main">
+<div class="plans-heading"><div><span class="eyebrow">DAILY MILK PLANS</span><h1>Set it once. Get milk every day.</h1><p id="plansState">Checking your account…</p></div><button class="secondary" id="refreshPlans">↻ Refresh</button></div>
+
+<section id="plansGate" class="plans-card hidden">
+<div class="plan-icon">↻</div><h2>Sign in to create a daily plan</h2>
+<p>Your recurring deliveries, address and schedule stay private to your Doodhwala account.</p>
+<a class="primary" href="/Dudh-Wallah/auth.html?return=./plans.html">Sign in / Create account →</a>
+</section>
+
+<section id="createPlan" class="plans-card hidden">
+<div class="card-head"><div><span class="eyebrow">NEW PLAN</span><h2 id="planProductTitle">Daily milk subscription</h2><p id="planProviderMeta" class="muted-copy"></p></div><span class="plan-badge">30 DAYS</span></div>
+<form id="planForm">
+<div class="plan-product-summary"><div class="plan-product-icon">🥛</div><div><b id="planProductName">Milk</b><small id="planPrice">₹0 / L</small></div></div>
+<div class="plan-grid">
+<label>Daily quantity<select id="planQuantity"><option value="0.5">500 ml</option><option value="1" selected>1 litre</option><option value="1.5">1.5 litres</option><option value="2">2 litres</option><option value="3">3 litres</option><option value="4">4 litres</option><option value="5">5 litres</option></select></label>
+<label>Delivery time<input id="planTime" type="time" required></label>
+<label>Start date<input id="planStart" type="date" required></label>
+<label>End date<input id="planEnd" type="date" required></label>
+<label class="wide">Delivery address<select id="planAddress" required></select></label>
+</div>
+<div class="day-picker"><div class="day-head"><b>Delivery days</b><span>Choose the days this milk should arrive.</span></div><div id="dayButtons" class="days"></div></div>
+<label class="plan-note">Delivery note<textarea id="planNote" rows="2" placeholder="Gate instructions, preferred drop spot, etc."></textarea></label>
+<div class="plan-preview"><div><small>DELIVERIES IN PLAN</small><b id="deliveryCount">0</b></div><div><small>ESTIMATED VALUE</small><b id="planEstimate">₹0</b></div><div><small>PRICE POLICY</small><b>Locked</b></div></div>
+<p class="plan-help">Your selected price is locked into this plan. You can pause, resume, skip an individual delivery before the cutoff, or cancel the plan later.</p>
+<button class="primary plan-submit" id="createPlanButton" type="submit">Start daily milk plan →</button>
+<div id="planError" class="plan-error" role="alert"></div>
+</form>
+</section>
+
+<section id="myPlans" class="hidden">
+<div class="section-heading"><div><span class="eyebrow">YOUR ROUTINES</span><h2>Active milk plans</h2></div></div>
+<div id="plansList" class="plans-list"></div>
+</section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.min.js"></script>
+<script src="/Dudh-Wallah/supabase-config.js"></script>
+<script src="/Dudh-Wallah/supabase-client.js"></script>
+<script src="/Dudh-Wallah/plans.js"></script>
+</body>
+</html>
