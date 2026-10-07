@@ -14,9 +14,11 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           set -e
-          for file in app.js auth.js checkout.js provider.js supabase-client.js supabase-config.js sw.js orders.js; do
+          for file in app.js auth.js checkout.js provider.js supabase-client.js supabase-config.js sw.js orders.js plans.js admin.js store.js product.js customer-nav.js location.js provider-location.js; do
             node --check "$file"
           done
+      - name: Validate site asset contracts
+        run: node scripts/validate-site.mjs
       - name: Reject accidental domain-root paths
         run: |
           set -e
