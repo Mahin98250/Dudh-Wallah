@@ -1,0 +1,26 @@
+name: Static validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JavaScript syntax
+        run: |
+          set -e
+          for file in app.js auth.js checkout.js provider.js supabase-client.js supabase-config.js sw.js; do
+            node --check "$file"
+          done
+      - name: Reject project-site breaking root paths
+        run: |
+          set -e
+          if grep -RInE 'href="/|src="/|location\.href="/|register\("/|start_url":"/'             --include='*.html' --include='*.js' --include='*.webmanifest' .; then
+            echo "Found root-absolute paths that break GitHub Pages project deployments."
+            exit 1
+          fi
