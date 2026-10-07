@@ -209,7 +209,7 @@ async function loadProviderOrders(){
      toast("New customer order received");
      try{navigator.vibrate?.([120,60,120])}catch(_){}
    }
-   loadProviderOrders()
+   clearTimeout(window.__providerRealtimeRefresh);window.__providerRealtimeRefresh=setTimeout(loadProviderOrders,250)
  }).subscribe()
 }
  const result=await Doodhwala.supabase.from("orders").select("id,status,status_reason,subtotal,delivery_fee,total,customer_note,created_at,acceptance_deadline_at,estimated_delivery_min_minutes,estimated_delivery_max_minutes,promised_delivery_at,late_after_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,order_items(product_name_snapshot,quantity,unit_price,line_total)").eq("provider_id",profile.data.id).order("created_at",{ascending:false}).limit(50);
