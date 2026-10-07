@@ -107,7 +107,7 @@ header{
 .search:focus-within{border-color:#b7cbbb;box-shadow:0 0 0 4px rgba(46,125,83,.06)}
 .search input{width:100%;border:0;outline:0;background:transparent;font-size:12px;color:var(--ink)}
 .search input::placeholder{color:#9aa59e}
-.location-top{margin-left:auto;background:transparent;color:var(--muted);font-size:11px;padding:9px}
+.location-top{margin-left:auto;display:inline-flex;align-items:center;gap:8px;min-width:150px;background:#fff;color:var(--ink);font-size:10px;padding:7px 10px;border:1px solid var(--line);border-radius:12px;text-align:left;transition:border-color .18s,box-shadow .18s,transform .18s}.location-top:hover{border-color:#cbd9ce;box-shadow:var(--shadow-sm);transform:translateY(-1px)}.location-top-icon{font-size:16px;color:var(--green);line-height:1}.location-top-copy{display:grid;gap:1px;flex:1}.location-top-copy small{font-size:7px;color:var(--muted);line-height:1}.location-top-copy b{font-size:10px;line-height:1.2}.location-top-chevron{font-size:11px;color:var(--muted)}
 .cart{
   background:var(--ink);color:#fff;padding:10px 14px;border-radius:11px;position:relative;
   font-size:11px;font-weight:700;transition:background .18s,box-shadow .18s;
@@ -298,7 +298,7 @@ footer{padding:0 58px 95px;font-size:9px;color:#859087;display:flex;justify-cont
   .mobile-logo b{font-family:Manrope,sans-serif;font-size:13px}
   .search{max-width:none;height:38px}
   .search input{font-size:10px}
-  .location-top{display:none}
+  header{flex-wrap:wrap;height:auto;min-height:62px;row-gap:7px;padding:8px 12px}.mobile-logo{order:1;margin-right:auto}.location-top{order:2;display:inline-flex;margin-left:0;min-width:0;max-width:145px;flex:0 1 auto;padding:6px 8px;border-radius:11px}.location-top-copy small{font-size:6px}.location-top-copy b{font-size:9px}.location-top-icon{font-size:14px}.location-top-chevron{font-size:10px}.auth-link{order:3}.cart{order:4}.search{order:5;flex:0 0 100%;width:100%;max-width:none}.location-top{font-size:9px}
   .cart{padding:9px 11px;font-size:9px}
   .hero{display:block;padding:28px 16px 18px}
   .hero h1{font-size:44px}
