@@ -22,3 +22,27 @@ begin
     alter publication supabase_realtime add table public.provider_verifications;
   end if;
 end $$;
+
+-- Realtime Postgres Changes are subject to SELECT RLS. These admin-only policies
+-- let the owner control center receive change signals without granting access
+-- to ordinary authenticated users.
+do $$
+declare
+  t text;
+  tables text[] := array['orders','provider_profiles','provider_verifications','milk_subscriptions','subscription_deliveries'];
+begin
+  foreach t in array tables loop
+    if not exists (
+      select 1
+      from pg_policies
+      where schemaname='public'
+        and tablename=t
+        and policyname='admin_realtime_select'
+    ) then
+      execute format(
+        'create policy admin_realtime_select on public.%I for select to authenticated using ((select private.is_current_user_admin()))',
+        t
+      );
+    end if;
+  end loop;
+end $$;
