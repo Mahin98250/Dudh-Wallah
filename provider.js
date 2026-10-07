@@ -10,7 +10,7 @@ async function syncProviderBackend(){
  if(!window.Doodhwala?.configured)return {ok:false,reason:"not_configured"};
  const {data:userData}=await Doodhwala.supabase.auth.getUser();const user=userData?.user;
  if(!user)return {ok:false,reason:"not_signed_in"};
- const payload={owner_user_id:user.id,display_name:provider.providerName||"Local milk provider",owner_name:provider.ownerName||"Provider",phone:provider.phone||"",primary_milk_type:provider.type||"mixed",area_name:provider.area||"Local area",city:provider.city||"Ahmedabad",pin_code:provider.pin||"000000",service_radius_km:Number(provider.radius||5),delivery_from:provider.from||null,delivery_to:provider.to||null,max_open_orders:Number(provider.maxOpenOrders||25),max_daily_litres:Number(provider.maxDailyLitres||250),acceptance_timeout_minutes:Number(provider.acceptanceTimeoutMinutes||10),is_active:true};
+ const payload={owner_user_id:user.id,display_name:provider.providerName||"Local milk provider",owner_name:provider.ownerName||"Provider",phone:provider.phone||"",primary_milk_type:provider.type||"mixed",area_name:provider.area||"Local area",city:provider.city||"Ahmedabad",pin_code:provider.pin||"000000",service_radius_km:Number(provider.radius||5),delivery_from:provider.from||null,delivery_to:provider.to||null,max_open_orders:Number(provider.maxOpenOrders||25),max_daily_litres:Number(provider.maxDailyLitres||250),acceptance_timeout_minutes:Number(provider.acceptanceTimeoutMinutes||10)};
  if(!/^\d{6}$/.test(payload.pin_code)){return {ok:false,reason:"invalid_pin"}}
  const up=await Doodhwala.supabase.from("provider_profiles").upsert(payload,{onConflict:"owner_user_id"}).select("id").single();
  if(up.error)throw up.error;
