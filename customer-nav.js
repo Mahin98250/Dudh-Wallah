@@ -79,8 +79,35 @@
     }
   }
 
+  function installStyles() {
+    if (document.getElementById("doodhwalaCustomerNavStyles")) return;
+    const style = document.createElement("style");
+    style.id = "doodhwalaCustomerNavStyles";
+    style.textContent = `
+      .customer-bottom-nav{display:none}
+      @media(max-width:760px){
+        body.has-customer-nav{padding-bottom:calc(86px + env(safe-area-inset-bottom))}
+        .customer-bottom-nav{position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:9999;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));height:70px;padding:6px 5px;background:rgba(255,255,255,.96);border:1px solid #d0dbd2;border-radius:21px;box-shadow:0 14px 34px rgba(20,45,29,.15),0 2px 6px rgba(20,45,29,.06);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);padding-bottom:max(6px,env(safe-area-inset-bottom))}
+        .customer-nav-item{position:relative;min-width:0;height:58px;padding:4px 2px;border:0;background:transparent;color:#7b857e;border-radius:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer}
+        .customer-nav-item svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+        .customer-nav-item span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:7.5px;line-height:1;font-weight:700}
+        .customer-nav-item.active{color:#17603f;background:#e3f1e7}
+        .customer-nav-item.is-cart{margin:2px 1px;color:#fff;background:#17221a;box-shadow:0 7px 16px rgba(23,34,26,.15)}
+        .customer-nav-item.is-cart.active{background:#17603f;color:#fff}
+        .customer-nav-badge{position:absolute;top:4px;right:15%;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#e7b95e;color:#392d13;font-size:7px!important;line-height:18px!important;text-align:center;font-weight:900!important;display:none!important}
+        .customer-nav-badge.show{display:block!important}
+      }
+      @media(max-width:360px){
+        .customer-bottom-nav{left:5px;right:5px}
+        .customer-nav-item svg{width:19px;height:19px}
+        .customer-nav-item span{font-size:7px}
+      }`;
+    document.head.appendChild(style);
+  }
+
   function mount() {
     if (!document.body) return;
+    installStyles();
     document.body.classList.add("has-customer-nav");
     let nav = document.querySelector(".customer-bottom-nav");
     const legacy = document.querySelector(".bottom");
