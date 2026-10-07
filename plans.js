@@ -16,14 +16,31 @@ function setDays(){ $("dayButtons").innerHTML=dayNames.map((x,i)=>'<button type=
 function showError(v){$("planError").textContent=v||""}
 function niceError(v){const m=String(v||"");const map={delivery_time_outside_provider_window:"Choose a time inside this provider's delivery window.",subscription_product_unavailable:"This milk is not currently available for daily plans.",address_not_owned:"Choose one of your saved delivery addresses.",same_day_delivery_time_has_passed:"That time has already passed today. Choose tomorrow or a later date.",plan_has_no_delivery_days:"Choose at least one delivery day.",start_date_in_past:"Choose today or a future start date.",authentication_required:"Please sign in again.",subscription_change_cutoff_passed:"Your next delivery is too close to change this plan. Try again before the cutoff.",new_delivery_time_too_soon:"That delivery time is too close to now. Choose a later time.",subscription_not_editable:"This plan can no longer be edited.",pause_date_in_past:"Choose today or a future pause date.",no_subscription_changes:"Choose at least one change."};return map[m]||m.replace(/^.*?:/,"").replace(/_/g," ")||"Could not update the plan."}
 async function loadContext(){
- if(!window.Doodhwala?.configured){$("plansState").textContent="Backend is not configured.";return}
- const auth=await sup.auth.getUser();user=auth.data?.user;
- if(!user){$("plansGate").classList.remove("hidden");$("plansState").textContent="Sign in to manage recurring milk deliveries.";return}
- $("plansState").textContent="Your recurring deliveries, in one place.";
- $("myPlans").classList.remove("hidden");await loadPlans();
- const addr=await sup.from("addresses").select("id,label,recipient_name,address_line,area_name,city,pin_code").eq("user_id",user.id).order("is_default",{ascending:false});
- addresses=addr.data||[];renderAddresses();
- if(providerId&&productId){await loadProductContext()}else{$("createPlan").classList.remove("hidden");$("planProductTitle").textContent="Choose a milk product first";$("planProviderMeta").textContent="Open a provider from the shop and tap Plan to preselect it."}
+ try{
+  if(!window.Doodhwala?.configured){$("plansState").textContent="Backend is not configured.";return}
+  $("plansState").textContent="Connecting to Doodhwala…";
+  const session=await Promise.race([sup.auth.getSession(),new Promise((_,reject)=>setTimeout(()=>reject(new Error("Authentication request timed out. Please refresh.")),10000))]);
+  user=session.data?.session?.user||null;
+  if(!user){
+   $("plansGate").classList.remove("hidden");$("plansState").textContent="Sign in to manage recurring milk deliveries.";return;
+  }
+  $("plansState").textContent="Your recurring deliveries, in one place.";
+  $("myPlans").classList.remove("hidden");
+  const [plansResult,addr]=await Promise.all([
+   loadPlans(),
+   sup.from("addresses").select("id,label,recipient_name,address_line,area_name,city,pin_code").eq("user_id",user.id).order("is_default",{ascending:false})
+  ]);
+  if(addr.error)throw addr.error;
+  addresses=addr.data||[];renderAddresses();
+  if(providerId&&productId)await loadProductContext();
+  else{$("createPlan").classList.remove("hidden");$("planProductTitle").textContent="Choose a milk product first";$("planProviderMeta").textContent="Open a provider from the shop and tap Plan to preselect it."}
+  if(!window.__doodhwalaPlansChannel){
+   window.__doodhwalaPlansChannel=sup.channel("customer-plans-"+user.id)
+    .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions",filter:"customer_id=eq."+user.id},()=>loadPlans())
+    .on("postgres_changes",{event:"*",schema:"public",table:"subscription_deliveries"},()=>loadPlans())
+    .subscribe();
+  }
+ }catch(err){console.error(err);$("plansState").textContent=String(err?.message||"Could not load your milk plans.");$("plansGate").classList.add("hidden");}
 }
 async function loadProductContext(){
  const r=await sup.from("milk_products").select("id,name,milk_type,price_per_litre,unit_label,stock,daily_available,is_active,provider_id,provider_profiles(display_name,area_name,city,delivery_from,delivery_to,is_active)").eq("id",productId).eq("provider_id",providerId).maybeSingle();
