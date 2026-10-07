@@ -107,8 +107,9 @@
     </section>
 
     <section class="provider-view" id="view-orders">
-      <div class="view-heading"><div><span class="eyebrow">ORDER CENTRE</span><h1>Orders</h1><p>Order integration will connect here after the customer checkout backend is added.</p></div></div>
-      <div class="empty-provider-state"><div>◷</div><h3>No live orders yet</h3><p>Your catalogue and service area are ready first. Customer orders arrive in Phase 4 when checkout is connected.</p><button class="secondary" data-view-jump="products">Review catalogue</button></div>
+      <div class="view-heading"><div><span class="eyebrow">ORDER CENTRE</span><h1>Orders</h1><p>Manage incoming customer orders and move them through your milk route.</p></div><button class="secondary" id="refreshOrders">↻ Refresh</button></div>
+      <div id="providerOrderState" class="order-state">Checking your order queue…</div>
+      <div id="providerOrders" class="provider-orders"></div>
     </section>
 
     <section class="provider-view" id="view-service">
