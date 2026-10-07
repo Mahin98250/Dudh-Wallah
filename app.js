@@ -67,7 +67,7 @@ async function loadRemoteProviders(lat=null,lng=null){
      rating:String(Number(row.rating_avg||0).toFixed(1)),
      delivery:row.delivery_from&&row.delivery_to?String(row.delivery_from).slice(0,5)+"–"+String(row.delivery_to).slice(0,5):"Local route",
      verified:true,
-     subscription:false,
+     subscription:products.some(function(p){return p.daily_available}),
      productIds:products.map(function(p){return p.id}),
      milks:products.map(function(p){return [p.name,"₹"+Number(p.price_per_litre).toLocaleString("en-IN")+" / L"]})
    };
