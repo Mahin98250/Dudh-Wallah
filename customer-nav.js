@@ -104,8 +104,19 @@
     window.addEventListener("storage", () => updateCartBadge(nav));
     window.addEventListener("doodhwala:cart-updated", () => updateCartBadge(nav));
     window.addEventListener("popstate", () => setActive(nav));
-    if ((new URLSearchParams(location.search)).get("cart") === "1" && getPage() === "home") {
-      setTimeout(() => { if (typeof window.openCart === "function") window.openCart(); }, 80);
+    const params = new URLSearchParams(location.search);
+    if (getPage() === "home") {
+      const initialView = params.get("view");
+      if (initialView === "providers" || initialView === "saved") {
+        setTimeout(() => {
+          const target = document.querySelector('[data-go="' + initialView + '"]');
+          if (target) target.click();
+          setActive(nav);
+        }, 0);
+      }
+      if (params.get("cart") === "1") {
+        setTimeout(() => { if (typeof window.openCart === "function") window.openCart(); }, 80);
+      }
     }
     window.DoodhwalaCustomerNav = { navigate, updateCartBadge: () => updateCartBadge(nav) };
   }
