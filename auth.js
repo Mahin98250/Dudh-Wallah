@@ -13,33 +13,84 @@ function normalizePhone(v){const digits=v.replace(/\D/g,"");if(digits.length===1
 async function ensureReady(){if(!window.Doodhwala?.configured){showMessage("Supabase is not configured.",true);return false}return true}
 document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 setMode("signin");
-form.onsubmit=async function(e){e.preventDefault();if(!await ensureReady())return;submit.disabled=true;try{if(mode==="signup"){const name=fullName.value.trim();if(name.length<2)throw new Error("Enter your full name.");const {data,error}=await Doodhwala.supabase.auth.signUp({email:email.value.trim(),password:password.value,options:{data:{full_name:name},emailRedirectTo:productionUrl("/auth.html?return="+encodeURIComponent(getReturnPath()))}});if(error)throw error;if(data.session){showMessage("Account created. Redirecting…");location.href=getReturnPath()}else showMessage("Account created. Check your email to verify it. After verification, return here and sign in.");}else{const {error}=await Doodhwala.supabase.auth.signInWithPassword({email:email.value.trim(),password:password.value});if(error)throw error;showMessage("Signed in. Redirecting…");location.href=getReturnPath()}}catch(err){showMessage(authError(err),true)}finally{submit.disabled=false}};
+form.onsubmit=async function(e){e.preventDefault();if(!await ensureReady())return;submit.disabled=true;try{if(mode==="signup"){const name=fullName.value.trim();if(name.length<2)throw new Error("Enter your full name.");const {data,error}=await Doodhwala.supabase.auth.signUp({email:email.value.trim(),password:password.value,options:{data:{full_name:name},emailRedirectTo:productionUrl("/auth.html?return="+encodeURIComponent(getReturnPath()))}});if(error)throw error;if(data.session){showMessage("Account created. Redirecting…");await postAuthRedirect()}else showMessage("Account created. Check your email to verify it. After verification, return here and sign in.");}else{const {error}=await Doodhwala.supabase.auth.signInWithPassword({email:email.value.trim(),password:password.value});if(error)throw error;await postAuthRedirect()}}catch(err){showMessage(authError(err),true)}finally{submit.disabled=false}};
 googleAuth.onclick=async()=>{if(isLocalOrigin()){showMessage("Google sign-in uses the secure production site. Opening Doodhwala…");location.href=productionGoogleUrl();return}if(!await ensureReady())return;googleAuth.disabled=true;try{const {error}=await Doodhwala.supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:productionUrl("/auth.html?return="+encodeURIComponent(getReturnPath()))}});if(error)throw error}catch(err){showMessage(authError(err),true);googleAuth.disabled=false}};
+function isCustomerRoute(path){
+  return path==="/Dudh-Wallah/"||/\/Dudh-Wallah\/(orders|plans|checkout|store|product)(\.html)?/.test(path)||path.includes("view=providers")||path.includes("view=saved");
+}
+async function customerNeedsCompletion(user){
+  const {data,error}=await Doodhwala.supabase.from("profiles").select("full_name,phone").eq("id",user.id).maybeSingle();
+  if(error)throw error;
+  return !data||!String(data.full_name||"").trim()||!String(data.phone||"").trim();
+}
+function showProfileCompletion(user){
+  document.querySelectorAll("#authForm,.auth-tabs,#googleAuth,#forgotAuth,.auth-divider,#phoneToggle,#phoneForm").forEach(el=>{if(el)el.classList.add("hidden")});
+  const box=document.getElementById("profileCompletion");
+  if(!box)return;
+  box.classList.remove("hidden");
+  const meta=user?.user_metadata||{};
+  document.getElementById("completeFullName").value=meta.full_name||meta.name||"";
+  document.getElementById("completePhone").value=user?.phone||"";
+  document.getElementById("completeProfileBtn").disabled=false;
+}
+async function finishProfileCompletion(){
+  const btn=document.getElementById("completeProfileBtn");
+  const name=document.getElementById("completeFullName").value.trim();
+  const phone=normalizePhone(document.getElementById("completePhone").value);
+  const address=document.getElementById("completeAddress").value.trim();
+  const area=document.getElementById("completeArea").value.trim();
+  const city=document.getElementById("completeCity").value.trim();
+  const pin=document.getElementById("completePin").value.trim();
+  if(name.length<2){showMessage("Enter your full name.",true);return}
+  if(!/^\+?[0-9]{10,15}$/.test(phone)){showMessage("Enter a valid phone number.",true);return}
+  if(address||area||city||pin){
+    if(!address||!area||!city||!/^\d{6}$/.test(pin)){showMessage("Complete the home address, area, city and 6-digit PIN, or leave the address blank.",true);return}
+  }
+  btn.disabled=true;btn.textContent="Saving…";
+  try{
+    const {error}=await Doodhwala.supabase.rpc("complete_current_customer_profile",{
+      p_full_name:name,p_phone:phone,p_address_line:address||null,p_area_name:area||null,
+      p_city:city||null,p_pin_code:pin||null
+    });
+    if(error)throw error;
+    showMessage("Account completed. Redirecting…");
+    location.replace(getReturnPath());
+  }catch(err){
+    showMessage(authError(err),true);
+    btn.disabled=false;btn.textContent="Save & Continue →";
+  }
+}
+document.getElementById("profileCompletionForm")?.addEventListener("submit",e=>{e.preventDefault();finishProfileCompletion()});
+async function postAuthRedirect(){
+  const returnPath=getReturnPath();
+  const {data}=await Doodhwala.supabase.auth.getSession();
+  const user=data?.session?.user;
+  if(!user){location.replace(returnPath);return}
+  const {data:isAdmin}=await Doodhwala.supabase.rpc("is_current_user_admin");
+  if(isAdmin===true){
+    showMessage("Admin account verified. Opening Admin Panel…");
+    location.replace("/Dudh-Wallah/admin.html");
+    return;
+  }
+  if(isCustomerRoute(returnPath)&&await customerNeedsCompletion(user)){
+    showProfileCompletion(user);
+    return;
+  }
+  showMessage("Signed in. Redirecting…");
+  location.replace(returnPath);
+}
 async function handleExistingSession(){
   if(!window.Doodhwala?.configured)return;
   try{
     const {data}=await Doodhwala.supabase.auth.getSession();
     const session=data?.session;
     if(!session?.user)return;
-    const returnPath=getReturnPath();
-    const {data:isAdmin}=await Doodhwala.supabase.rpc("is_current_user_admin");
-    if(isAdmin===true){
-      showMessage("Admin account verified. Opening Admin Panel…");
-      location.replace("/Dudh-Wallah/admin.html");
-      return;
-    }
-    if(returnPath!=="/Dudh-Wallah/"){
-      showMessage("Signed in. Redirecting…");
-      location.replace(returnPath);
-    }
-  }catch(err){
-    console.warn("Existing session check failed",err);
-  }
-}
-handleExistingSession();
+    await postAuthRedirect();
+  }catch(err){console.warn("Existing session check failed",err)}
+}handleExistingSession();
 const autoGoogle=new URLSearchParams(location.search).get("oauth")==="google";
 if(autoGoogle&&!isLocalOrigin())setTimeout(()=>googleAuth.click(),80);
 forgotAuth.onclick=async()=>{if(!await ensureReady())return;const e=email.value.trim();if(!e){showMessage("Enter your email first, then tap Forgot password.",true);return}try{const {error}=await Doodhwala.supabase.auth.resetPasswordForEmail(e,{redirectTo:productionUrl("/auth.html?reset=1&return="+encodeURIComponent(getReturnPath()))});if(error)throw error;showMessage("Password reset email sent. Check your inbox.")}catch(err){showMessage(authError(err),true)}};
 phoneToggle.onclick=()=>{phoneForm.classList.toggle("hidden");phoneToggle.textContent=phoneForm.classList.contains("hidden")?"Use phone + OTP":"Hide phone + OTP"};
 phoneForm.onsubmit=async e=>{e.preventDefault();if(!await ensureReady())return;sendOtp.disabled=true;try{const {error}=await Doodhwala.supabase.auth.signInWithOtp({phone:normalizePhone(phoneNumber.value)});if(error)throw error;showMessage("OTP requested. This requires phone authentication/SMS to be enabled in Supabase.");document.getElementById("otpField").classList.remove("hidden");verifyOtp.classList.remove("hidden")}catch(err){showMessage("Phone OTP is not enabled yet. Configure a phone/SMS provider in Supabase Auth first.",true)}finally{sendOtp.disabled=false}};
-verifyOtp.onclick=async()=>{try{const {data,error}=await Doodhwala.supabase.auth.verifyOtp({phone:normalizePhone(phoneNumber.value),token:otpCode.value.trim(),type:"sms"});if(error)throw error;if(data.session)location.href=getReturnPath()}catch(err){showMessage(authError(err),true)}};
+verifyOtp.onclick=async()=>{try{const {data,error}=await Doodhwala.supabase.auth.verifyOtp({phone:normalizePhone(phoneNumber.value),token:otpCode.value.trim(),type:"sms"});if(error)throw error;if(data.session)await postAuthRedirect()}catch(err){showMessage(authError(err),true)}};
