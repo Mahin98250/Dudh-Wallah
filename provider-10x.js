@@ -242,7 +242,8 @@
       <div class="shop-layout"><div style="display:grid;gap:14px">${renderAttention(perf,metrics,ps)}${renderPipeline(metrics)}${renderTrend(metrics)}</div><div style="display:grid;gap:14px">${renderCapacity(metrics)}${renderQuick()} ${renderLiveDeliveries(orders)}</div></div>
     </div>`;
 
-    host.querySelectorAll("[data-shop-go]").forEach(btn=>btn.addEventListener("click",()=>go(btn.dataset.shopGo)));\n    host.querySelectorAll("[data-shop-action]").forEach(btn=>btn.addEventListener("click",async()=>{if(btn.dataset.shopAction!=="resume-store"||typeof toggleStoreStatus!=="function")return;btn.disabled=true;await toggleStoreStatus().catch(()=>{});setTimeout(refresh,200);}));
+    host.querySelectorAll("[data-shop-go]").forEach(btn=>btn.addEventListener("click",()=>go(btn.dataset.shopGo)));
+    host.querySelectorAll("[data-shop-action]").forEach(btn=>btn.addEventListener("click",async()=>{if(btn.dataset.shopAction!=="resume-store"||typeof toggleStoreStatus!=="function")return;btn.disabled=true;await toggleStoreStatus().catch(()=>{});setTimeout(refresh,200);}));
     host.querySelectorAll("[data-shop-refresh]").forEach(btn=>btn.addEventListener("click",refresh));
     host.querySelectorAll("[data-p10-live]").forEach(btn=>btn.addEventListener("click",()=>sharePosition(btn.dataset.p10Live,btn)));
   }
@@ -315,6 +316,10 @@
     }
     const auth=await api.auth.getUser().catch(()=>null);
     const user=auth?.data?.user;
+    if(!user){
+      document.getElementById("provider10xSlot").innerHTML="<div class=\"shop-card\"><span class=\"eyebrow\">LOCAL SETUP</span><h4 style=\"margin:4px 0;font:800 16px Manrope,sans-serif\">Sign in to turn this into a live shop.</h4><p style=\"margin:0;color:#6d796f;font-size:9px;line-height:1.5\">Your catalogue and provider setup remain available locally. Sign in to publish the store, receive customer orders and use live delivery operations.</p></div>";
+      return;
+    }
     subscribeRealtime(user);
     await refresh();
     clearInterval(state.timer);
