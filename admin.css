@@ -27,3 +27,17 @@
 .muted-admin{color:#7a887f;font-size:8px;margin-top:3px}
 .provider-review-actions button{min-height:29px}
 @media(max-width:700px){.admin-detail-grid{grid-template-columns:1fr}.admin-detail-head{gap:9px}.admin-detail-head h2{font-size:20px}.product-admin-row{align-items:flex-start;flex-direction:column}.product-admin-flags{justify-content:flex-start}}
+
+.admin-content button:not(.primary){cursor:pointer}
+.admin-table td button{border:1px solid #d9e2da;background:#fff;border-radius:8px;padding:6px 9px;font:800 8px "DM Sans",sans-serif;color:#17251c}
+.detail-list{display:grid;gap:2px}
+.detail-list>div{display:flex;justify-content:space-between;gap:15px;padding:10px 0;border-bottom:1px solid #edf1ed}
+.detail-list>div:last-child{border-bottom:0}
+.detail-list b{font-size:9px}.detail-list span{font-size:9px;color:#748179;text-align:right}
+.timeline-admin{display:grid;gap:0;margin-top:5px}
+.timeline-admin>div{position:relative;display:grid;grid-template-columns:13px 1fr;gap:9px;padding:0 0 16px 0}
+.timeline-admin>div:last-child{padding-bottom:0}
+.timeline-admin>div i{width:9px;height:9px;border-radius:50%;background:#2f7450;margin-top:3px;box-shadow:0 0 0 3px #e6f3e9}
+.timeline-admin>div:not(:last-child) i:after{content:"";position:absolute;left:4px;top:13px;width:1px;height:calc(100% - 13px);background:#d8e5da}
+.timeline-admin b{display:block;font-size:9px;text-transform:capitalize}
+.timeline-admin span{display:block;margin-top:3px;color:#78857d;font-size:8px}
