@@ -438,7 +438,7 @@ await setupProviderOrderRealtime(user)
     const result=await Doodhwala.supabase.rpc("provider_update_order_status",{p_order_id:button.dataset.orderId,p_new_status:status,p_reason:reason});
     if(result.error){
       const msg=String(result.error.message||"");
-      const friendly=msg.includes("invalid_order_status_transition")?"This order has already changed. Refresh the queue.":msg.includes("reason_required")?"Add a reason before continuing.":msg;
+      const friendly=msg.includes("invalid_order_status_transition")?"This order has already changed. Refresh the queue.":msg.includes("reason_required")?"Add a reason before continuing.":msg.includes("acceptance_window_expired")?"The acceptance window has expired. Refresh the queue.":msg;
       toast(friendly);button.disabled=false;loadProviderOrders();return;
     }
     toast(status==="delivered"?"Order marked delivered":"Order updated");
@@ -515,6 +515,8 @@ bootProvider();
 document.addEventListener("visibilitychange",function(){
  if(document.visibilityState==="visible"&&dashboard&&!dashboard.classList.contains("hidden")){
    loadProviderRoute(routeDate).catch(function(err){console.warn("Provider route resume refresh failed",err)});
+   if(document.getElementById("view-subscriptions")?.classList.contains("active"))loadProviderSubscriptions().catch(function(err){console.warn("Provider subscription resume refresh failed",err)});
+   if(document.getElementById("view-orders")?.classList.contains("active"))loadProviderOrders().catch(function(err){console.warn("Provider order resume refresh failed",err)});
  }
 });
 window.addEventListener("keydown",e=>{if(e.key==="Escape"){const modal=document.querySelector(".product-modal");if(modal)modal.remove()}});
