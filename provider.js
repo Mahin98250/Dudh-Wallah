@@ -73,7 +73,7 @@ async function syncProviderBackend(){
  provider.backendProviderId=up.data.id;
  let coords=provider.latitude&&provider.longitude?{latitude:provider.latitude,longitude:provider.longitude}:await getCurrentLocation();
  if(coords){provider.latitude=coords.latitude;provider.longitude=coords.longitude;const area=await Doodhwala.supabase.from("provider_service_areas").upsert({provider_id:provider.backendProviderId,label:provider.area||"Local route",latitude:coords.latitude,longitude:coords.longitude,service_radius_km:Number(provider.radius||5)},{onConflict:"provider_id"});if(area.error)throw area.error}
- for(const p of provider.products){const row={id:p.id,provider_id:provider.backendProviderId,name:p.name,milk_type:p.type||provider.type||"mixed",price_per_litre:Number(p.price||0),unit_label:p.unit||"1 L",stock:Boolean(p.stock),daily_available:Boolean(p.days),is_active:true};const result=await Doodhwala.supabase.from("milk_products").upsert(row,{onConflict:"id"});if(result.error)throw result.error}
+ for(const p of provider.products){const row={id:p.id,provider_id:provider.backendProviderId,name:p.name,milk_type:p.type||provider.type||"mixed",price_per_litre:Number(p.price||0),unit_label:p.unit||"1 L",stock:Boolean(p.stock),daily_available:Boolean(p.days),is_active:p.isActive!==false};const result=await Doodhwala.supabase.from("milk_products").upsert(row,{onConflict:"id"});if(result.error)throw result.error}
  save();
  return {ok:true,hasLocation:Boolean(coords)};
 }
