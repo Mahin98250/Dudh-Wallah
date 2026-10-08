@@ -50,17 +50,92 @@ async function reviewProvider(id,status,button){
  if(error){alert(error.message);button.disabled=false;return}
  await loadSection("providers");
 }
+async function openProviderDetail(id){
+  try{
+    const {data,error}=await Doodhwala.supabase.rpc("admin_get_provider_detail",{p_provider_id:id});
+    if(error)throw error;
+    renderProviderDetail(data);
+  }catch(error){alert(error.message||"Unable to load provider.")}
+}
+async function updateProductFromDetail(providerId,product,field,button){
+  button.disabled=true;
+  const next=!Boolean(product[field]);
+  const payload={p_product_id:product.id,p_is_active:product.is_active,p_stock:product.stock,p_daily_available:product.daily_available};
+  payload[field==="is_active"?"p_is_active":field==="stock"?"p_stock":"p_daily_available"]=next;
+  try{
+    const {error}=await Doodhwala.supabase.rpc("admin_set_product_state",payload);
+    if(error)throw error;
+    await openProviderDetail(providerId);
+  }catch(error){alert(error.message||"Unable to update product.");button.disabled=false;}
+}
+function renderProviderDetail(d){
+  const p=d.provider||{},v=d.verification||{},a=d.service_area||{},products=d.products||[];
+  $("adminContent").innerHTML='<div class="admin-section"><div class="admin-detail-head"><button id="backProviders">← Providers</button><div><span class="eyebrow">PROVIDER COMMAND CENTER</span><h2>'+esc(p.display_name||"Provider")+'</h2><p>'+esc([p.owner_name,p.area_name,p.city].filter(Boolean).join(" · "))+'</p></div></div>'+
+  '<div class="admin-detail-grid">'+
+  '<article class="admin-card"><span class="eyebrow">VERIFICATION</span><h3>'+esc(v.status||"pending")+'</h3><div class="detail-meta"><span>Reviewed</span><b>'+dateTime(v.reviewed_at)+'</b></div><div class="admin-note">'+esc(v.notes||"No review note.")+'</div></article>'+
+  '<article class="admin-card"><span class="eyebrow">OPERATIONS</span><h3>'+esc(p.is_active?"Active":"Inactive")+'</h3><div class="detail-meta"><span>Orders</span><b>'+esc(p.accepting_orders?"Accepting":"Paused")+'</b></div><div class="detail-meta"><span>Radius</span><b>'+Number(p.service_radius_km||0).toLocaleString("en-IN")+" km"+'</b></div></article></div>'+
+  '<div class="admin-detail-grid"><article class="admin-card"><span class="eyebrow">PROVIDER CONTROLS</span><form id="providerControlsForm" class="control-form">'+
+  '<label><span>Active</span><select id="pcActive"><option value="true">Yes</option><option value="false">No</option></select></label>'+
+  '<label><span>Accepting orders</span><select id="pcAccept"><option value="true">Yes</option><option value="false">No</option></select></label>'+
+  '<label><span>Max open orders</span><input id="pcOpen" type="number" min="1" max="500" value="'+Number(p.max_open_orders||25)+'"></label>'+
+  '<label><span>Max daily litres</span><input id="pcLitres" type="number" min="0.1" max="100000" step="0.1" value="'+Number(p.max_daily_litres||250)+'"></label>'+
+  '<label><span>Acceptance timeout (minutes)</span><input id="pcTimeout" type="number" min="1" max="120" value="'+Number(p.acceptance_timeout_minutes||10)+'"></label>'+
+  '<button class="primary" type="submit">Save provider controls</button></form></article>'+
+  '<article class="admin-card"><span class="eyebrow">SERVICE AREA</span><form id="serviceAreaForm" class="control-form">'+
+  '<label><span>Area label</span><input id="saLabel" maxlength="120" value="'+esc(a.label||p.area_name||"Service area")+'"></label>'+
+  '<label><span>Latitude</span><input id="saLat" type="number" step="0.0000001" min="-90" max="90" value="'+(a.latitude??"")+'"></label>'+
+  '<label><span>Longitude</span><input id="saLng" type="number" step="0.0000001" min="-180" max="180" value="'+(a.longitude??"")+'"></label>'+
+  '<label><span>Radius (km)</span><input id="saRadius" type="number" step="0.1" min="0.1" max="25" value="'+Number(a.service_radius_km||p.service_radius_km||5)+'"></label>'+
+  '<button class="primary" type="submit">Save service area</button></form></article></div>'+
+  '<article class="admin-card admin-products-card"><div class="admin-list-head"><div><span class="eyebrow">PRODUCT OVERSIGHT</span><h3>Products</h3></div></div>'+
+  (products.length?'<div class="product-admin-grid">'+products.map(m=>'<div class="product-admin-row"><div><b>'+esc(m.name)+'</b><span>'+esc(m.milk_type)+' · '+money(m.price_per_litre)+'/L</span></div><div class="product-admin-flags"><button data-product-id="'+esc(m.id)+'" data-product-field="stock">'+(m.stock?"In stock":"Out of stock")+'</button><button data-product-id="'+esc(m.id)+'" data-product-field="daily_available">'+(m.daily_available?"Daily on":"Daily off")+'</button><button data-product-id="'+esc(m.id)+'" data-product-field="is_active" class="'+(!m.is_active?"danger":"")+'">'+(m.is_active?"Visible":"Hidden")+'</button></div></div>').join("")+'</div>':'<div class="empty-admin">No products for this provider.</div>')+
+  '</article></div>';
+  $("pcActive").value=String(Boolean(p.is_active));$("pcAccept").value=String(Boolean(p.accepting_orders));
+  $("backProviders").onclick=()=>loadSection("providers");
+  $("providerControlsForm").onsubmit=async e=>{
+    e.preventDefault();const b=e.target.querySelector("button");b.disabled=true;
+    try{
+      const {error}=await Doodhwala.supabase.rpc("admin_set_provider_controls",{p_provider_id:p.id,p_is_active:$("pcActive").value==="true",p_accepting_orders:$("pcAccept").value==="true",p_max_open_orders:Number($("pcOpen").value),p_max_daily_litres:Number($("pcLitres").value),p_acceptance_timeout_minutes:Number($("pcTimeout").value)});
+      if(error)throw error;await openProviderDetail(p.id);
+    }catch(error){alert(error.message||"Unable to save provider controls.");b.disabled=false;}
+  };
+  $("serviceAreaForm").onsubmit=async e=>{
+    e.preventDefault();const b=e.target.querySelector("button");b.disabled=true;
+    try{
+      const {error}=await Doodhwala.supabase.rpc("admin_set_provider_service_area",{p_provider_id:p.id,p_label:$("saLabel").value,p_latitude:Number($("saLat").value),p_longitude:Number($("saLng").value),p_service_radius_km:Number($("saRadius").value)});
+      if(error)throw error;await openProviderDetail(p.id);
+    }catch(error){alert(error.message||"Unable to save service area.");b.disabled=false;}
+  };
+  $("adminContent").querySelectorAll("[data-product-id]").forEach(btn=>btn.onclick=()=>{
+    const product=products.find(x=>x.id===btn.dataset.productId);
+    if(product)updateProductFromDetail(p.id,product,btn.dataset.productField,btn);
+  });
+}
 async function loadProvidersSection(){
- cache.providers=await adminRpc("admin_list_providers",{p_limit:150});
- const rows=cache.providers||[];
- const body=rows.length?rows.map(r=>'<tr><td>'+esc(r.display_name)+'</td><td>'+esc(r.owner_name)+'</td><td>'+esc([r.area_name,r.city].filter(Boolean).join(", "))+'</td><td><span class="admin-status '+esc(r.verification_status)+'">'+esc(r.verification_status)+'</span></td><td>'+r.product_count+'</td><td>'+ (r.is_active?"Yes":"No") +'</td><td><div class="provider-review-actions">'+
-   (r.verification_status!=="approved"?'<button data-review="approved" data-id="'+esc(r.id)+'">Approve</button>':"")+
-   (r.verification_status!=="rejected"?'<button data-review="rejected" data-id="'+esc(r.id)+'" class="danger">Reject</button>':"")+
-   (r.verification_status==="approved"&&r.is_active?'<button data-review="pending" data-id="'+esc(r.id)+'">Deactivate</button>':"")+
- '</div></td></tr>').join(""):'<tr><td colspan="7" class="empty-table">No providers yet.</td></tr>';
- $("adminContent").innerHTML='<div class="admin-section"><div class="admin-card admin-list-card"><div class="admin-list-head"><div><span class="eyebrow">LIVE BACKEND</span><h3>Providers</h3></div><button id="sectionRefresh">↻ Refresh</button></div><div class="table-scroll"><table class="table admin-table"><thead><tr><th>Provider</th><th>Owner</th><th>Area</th><th>Verification</th><th>Products</th><th>Active</th><th>Owner actions</th></tr></thead><tbody>'+body+'</tbody></table></div></div></div>';
- $("sectionRefresh").onclick=()=>loadSection("providers");
- $("adminContent").querySelectorAll("[data-review]").forEach(btn=>btn.addEventListener("click",()=>reviewProvider(btn.dataset.id,btn.dataset.review,btn)));
+  cache.providers=await adminRpc("admin_list_providers",{p_limit:150});
+  const rows=cache.providers||[];
+  const body=rows.length?rows.map(r=>'<tr><td><b>'+esc(r.display_name)+'</b><div class="muted-admin">'+esc(r.owner_name||"")+'</div></td><td>'+esc([r.area_name,r.city].filter(Boolean).join(", "))+'</td><td><span class="admin-status '+esc(r.verification_status)+'">'+esc(r.verification_status)+'</span></td><td>'+r.product_count+'</td><td>'+(r.is_active?"Yes":"No")+'</td><td><div class="provider-review-actions"><button data-manage="'+esc(r.id)+'">Manage</button>'+
+    (r.verification_status!=="approved"?'<button data-review="approved" data-id="'+esc(r.id)+'">Approve</button>':"")+
+    (r.verification_status!=="rejected"?'<button data-review="rejected" data-id="'+esc(r.id)+'" class="danger">Reject</button>':"")+
+    (r.verification_status==="approved"&&r.is_active?'<button data-review="pending" data-id="'+esc(r.id)+'">Deactivate</button>':"")+
+    '</div></td></tr>').join(""):'<tr><td colspan="6" class="empty-table">No providers yet.</td></tr>';
+  $("adminContent").innerHTML='<div class="admin-section"><div class="admin-card admin-list-card"><div class="admin-list-head"><div><span class="eyebrow">LIVE BACKEND</span><h3>Providers</h3></div><button id="sectionRefresh">↻ Refresh</button></div><div class="table-scroll"><table class="table admin-table"><thead><tr><th>Provider</th><th>Area</th><th>Verification</th><th>Products</th><th>Active</th><th>Owner actions</th></tr></thead><tbody>'+body+'</tbody></table></div></div></div>';
+  $("sectionRefresh").onclick=()=>loadSection("providers");
+  $("adminContent").querySelectorAll("[data-manage]").forEach(btn=>btn.onclick=()=>openProviderDetail(btn.dataset.manage));
+  $("adminContent").querySelectorAll("[data-review]").forEach(btn=>btn.onclick=()=>reviewProvider(btn.dataset.id,btn.dataset.review,btn));
+}
+async function loadProductsSection(){
+  cache.products=await adminRpc("admin_list_products",{p_limit:250});
+  const rows=cache.products||[];
+  const body=rows.length?rows.map(r=>'<tr><td><b>'+esc(r.name)+'</b><div class="muted-admin">'+esc(r.milk_type)+' · '+money(r.price_per_litre)+'/L</div></td><td>'+esc(r.provider_name)+'</td><td><span class="admin-status '+esc(r.verification_status)+'">'+esc(r.verification_status)+'</span></td><td>'+ (r.stock?"In stock":"Out")+'</td><td>'+ (r.daily_available?"Yes":"No")+'</td><td>'+ (r.is_active?"Visible":"Hidden")+'</td><td><div class="provider-review-actions"><button data-product-action="'+esc(r.id)+'">Toggle stock</button><button data-product-hide="'+esc(r.id)+'">'+(r.is_active?"Hide":"Show")+'</button></div></td></tr>').join(""):'<tr><td colspan="7" class="empty-table">No products yet.</td></tr>';
+  $("adminContent").innerHTML='<div class="admin-section"><div class="admin-card admin-list-card"><div class="admin-list-head"><div><span class="eyebrow">CATALOG CONTROL</span><h3>Products & stock</h3></div><button id="sectionRefresh">↻ Refresh</button></div><div class="table-scroll"><table class="table admin-table"><thead><tr><th>Product</th><th>Provider</th><th>Verification</th><th>Stock</th><th>Daily</th><th>Visible</th><th>Actions</th></tr></thead><tbody>'+body+'</tbody></table></div></div></div>';
+  $("sectionRefresh").onclick=()=>loadSection("products");
+  $("adminContent").querySelectorAll("[data-product-action]").forEach(btn=>btn.onclick=async()=>{const r=rows.find(x=>x.id===btn.dataset.productAction);if(!r)return;btn.disabled=true;const {error}=await Doodhwala.supabase.rpc("admin_set_product_state",{p_product_id:r.id,p_is_active:r.is_active,p_stock:!r.stock,p_daily_available:r.daily_available});if(error)alert(error.message);await loadSection("products")});
+  $("adminContent").querySelectorAll("[data-product-hide]").forEach(btn=>btn.onclick=async()=>{const r=rows.find(x=>x.id===btn.dataset.productHide);if(!r)return;btn.disabled=true;const {error}=await Doodhwala.supabase.rpc("admin_set_product_state",{p_product_id:r.id,p_is_active:!r.is_active,p_stock:r.stock,p_daily_available:r.daily_available});if(error)alert(error.message);await loadSection("products")});
+}
+async function loadAuditSection(){
+  cache.audit=await adminRpc("admin_list_audit_log",{p_limit:150});
+  table("Admin audit log",[["Time",r=>dateTime(r.created_at)],["Actor",r=>esc(r.actor_name||r.actor_email||"Owner")],["Action",r=>esc(r.action)],["Entity",r=>esc(r.entity_type)],["Details",r=>'<code>'+esc(JSON.stringify(r.details||{}))+'</code>']],cache.audit||[],"No admin actions recorded yet.");
 }
 function setupAdminRealtime(){
  if(!window.Doodhwala?.configured||window.__doodhwalaAdminChannel)return;
