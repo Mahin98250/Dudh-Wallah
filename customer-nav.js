@@ -8,7 +8,6 @@
     saved: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8.5c0 5-8 10-8 10s-8-5-8-10a4.5 4.5 0 0 1 8-2.5 4.5 4.5 0 0 1 8 2.5Z"/></svg>',
     cart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l-1 12H6L5 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/><path d="M9 11v4M15 11v4"/></svg>'
   };
-
   function getPage() {
     const file = (location.pathname.split("/").pop() || "index.html").toLowerCase();
     if (file === "" || file === "index.html") return "home";
@@ -19,12 +18,10 @@
     if (file === "auth.html" || file === "provider.html" || file === "admin.html") return "";
     return "home";
   }
-
   function item(key, label, extra="") {
     const cartBadge = key === "cart" ? '<b class="customer-nav-badge" data-cart-count>0</b>' : "";
     return '<button type="button" class="customer-nav-item '+extra+'" data-customer-nav="'+key+'" aria-label="'+label+'">'+icons[key]+'<span>'+label+'</span>'+cartBadge+'</button>';
   }
-
   function setActive(nav) {
     const q = new URLSearchParams(location.search);
     let active = getPage();
@@ -38,14 +35,12 @@
       btn.setAttribute("aria-current", btn.dataset.customerNav === active ? "page" : "false");
     });
   }
-
   function cartCount() {
     try {
       const cart = JSON.parse(localStorage.getItem("doodhwala-cart") || "{}");
       return Object.values(cart).reduce((sum, item) => sum + Math.max(0, Number(item?.qty) || 0), 0);
     } catch (_) { return 0; }
   }
-
   function updateCartBadge(nav) {
     const count = cartCount();
     const badge = nav.querySelector("[data-cart-count]");
@@ -53,7 +48,6 @@
     badge.textContent = count > 99 ? "99+" : String(count);
     badge.classList.toggle("show", count > 0);
   }
-
   function navigate(key) {
     const file = (location.pathname.split("/").pop() || "index.html").toLowerCase();
     const home = file === "" || file === "index.html";
@@ -79,7 +73,6 @@
       else location.href = BASE + "?cart=1";
     }
   }
-
   function installStyles() {
     if (document.getElementById("doodhwalaCustomerNavStyles")) return;
     const style = document.createElement("style");
@@ -105,7 +98,6 @@
       }`;
     document.head.appendChild(style);
   }
-
   function mount() {
     if (!document.body) return;
     installStyles();
@@ -118,14 +110,7 @@
       if (!legacy) document.body.appendChild(nav);
     }
     nav.setAttribute("aria-label", "Doodhwala navigation");
-    nav.innerHTML = [
-      item("home","Home"),
-      item("explore","Explore"),
-      item("plans","Plans"),
-      item("orders","Orders"),
-      item("saved","Saved"),
-      item("cart","Cart","is-cart")
-    ].join("");
+    nav.innerHTML = [item("home","Home"),item("explore","Explore"),item("plans","Plans"),item("orders","Orders"),item("saved","Saved"),item("cart","Cart","is-cart")].join("");
     nav.querySelectorAll("[data-customer-nav]").forEach(btn => btn.addEventListener("click", () => navigate(btn.dataset.customerNav)));
     setActive(nav);
     updateCartBadge(nav);
@@ -147,8 +132,13 @@
       }
     }
     window.DoodhwalaCustomerNav = { navigate, updateCartBadge: () => updateCartBadge(nav) };
+    if (!document.querySelector('script[data-doodhwala-10x]')) {
+      const featureScript=document.createElement("script");
+      featureScript.src=BASE+"customer-10x.js?v=20261008.1";
+      featureScript.dataset.doodhwala10x="1";
+      document.body.appendChild(featureScript);
+    }
   }
-
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount, {once:true});
   else mount();
 })();
