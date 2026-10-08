@@ -185,6 +185,31 @@ async function showOrderDetail(id){
     $("backOrders").onclick=()=>loadSection("orders");
   }catch(error){alert(error.message||"Unable to load order.")}
 }
+async function showCustomerDetail(id){
+  try{
+    const {data,error}=await Doodhwala.supabase.rpc("admin_get_customer_detail",{p_customer_id:id});
+    if(error)throw error;
+    const u=data.customer||{},addresses=data.addresses||[],orders=data.orders||[],subs=data.subscriptions||[];
+    $("adminContent").innerHTML='<div class="admin-section"><div class="admin-detail-head"><button id="backCustomers">← Customers</button><div><span class="eyebrow">CUSTOMER DETAIL</span><h2>'+esc(u.full_name||"Customer")+'</h2><p>'+esc(u.email||"")+' · '+esc(u.phone||"")+'</p></div></div>'+
+      '<div class="metric-grid"><div class="metric"><small>ORDERS</small><b>'+orders.length+'</b><span>Recent orders loaded</span></div><div class="metric"><small>PLANS</small><b>'+subs.length+'</b><span>Subscriptions</span></div><div class="metric"><small>ADDRESSES</small><b>'+addresses.length+'</b><span>Saved delivery locations</span></div><div class="metric"><small>JOINED</small><b>'+dateText(u.created_at)+'</b><span>Account created</span></div></div>'+
+      '<div class="admin-detail-grid"><article class="admin-card"><h3>Saved addresses</h3>'+(addresses.length?'<div class="detail-list">'+addresses.map(a=>'<div><b>'+esc(a.label||"Address")+(a.is_default?" · Default":"")+'</b><span>'+esc([a.address_line,a.area_name,a.city,a.pin_code].filter(Boolean).join(", "))+'</span></div>').join("")+'</div>':'<div class="empty-admin">No saved addresses.</div>')+'</article>'+
+      '<article class="admin-card"><h3>Recent orders</h3>'+(orders.length?'<div class="detail-list">'+orders.slice(0,12).map(o=>'<div><b>'+esc(String(o.id).slice(0,8))+' · '+esc(o.status)+'</b><span>'+dateTime(o.created_at)+' · '+money(o.total)+'</span></div>').join("")+'</div>':'<div class="empty-admin">No orders yet.</div>')+'</article></div>'+
+      '<article class="admin-card"><h3>Subscriptions</h3>'+(subs.length?'<div class="detail-list">'+subs.map(s=>'<div><b>'+esc(s.product_name||"Milk")+' · '+esc(s.status)+'</b><span>'+Number(s.quantity_litres||0)+' L · '+dateText(s.start_date)+' → '+dateText(s.end_date)+'</span></div>').join("")+'</div>':'<div class="empty-admin">No subscriptions.</div>')+'</article></div>';
+    $("backCustomers").onclick=()=>loadSection("customers");
+  }catch(error){alert(error.message||"Unable to load customer.")}
+}
+async function showSubscriptionDetail(id){
+  try{
+    const {data,error}=await Doodhwala.supabase.rpc("admin_get_subscription_detail",{p_subscription_id:id});
+    if(error)throw error;
+    const s=data.subscription||{},deliveries=data.deliveries||[];
+    $("adminContent").innerHTML='<div class="admin-section"><div class="admin-detail-head"><button id="backSubscriptions">← Subscriptions</button><div><span class="eyebrow">SUBSCRIPTION DETAIL</span><h2>'+esc(s.product_name||"Milk subscription")+'</h2><p>'+esc(s.customer_name||"")+' · '+esc(s.provider_name||"")+'</p></div></div>'+
+      '<div class="metric-grid"><div class="metric"><small>STATUS</small><b>'+esc(s.status||"—")+'</b><span>Current plan state</span></div><div class="metric"><small>QUANTITY</small><b>'+Number(s.quantity_litres||0)+' L</b><span>Per delivery</span></div><div class="metric"><small>PRICE</small><b>'+money(s.price_per_litre)+'</b><span>Locked/current policy: '+esc(s.price_policy||"—")+'</span></div><div class="metric"><small>DELIVERIES</small><b>'+deliveries.length+'</b><span>Materialized schedule</span></div></div>'+
+      '<div class="admin-detail-grid"><article class="admin-card"><h3>Plan</h3><div class="detail-list"><div><b>Customer</b><span>'+esc(s.customer_name||"—")+'</span></div><div><b>Contact</b><span>'+esc([s.customer_email,s.customer_phone].filter(Boolean).join(" · ")||"—")+'</span></div><div><b>Schedule</b><span>'+esc(String(s.delivery_time||"—"))+' · Days '+esc((s.days_of_week||[]).join(", "))+'</span></div><div><b>Period</b><span>'+dateText(s.start_date)+' → '+dateText(s.end_date)+'</span></div><div><b>Cutoff</b><span>'+Number(s.cutoff_minutes||0)+' minutes</span></div><div><b>Paused until</b><span>'+dateText(s.paused_until)+'</span></div></div></article>'+
+      '<article class="admin-card"><h3>Delivery schedule</h3>'+(deliveries.length?'<div class="detail-list">'+deliveries.slice(0,40).map(d=>'<div><b>'+dateText(d.delivery_date)+' · '+esc(d.status)+'</b><span>'+esc(d.order_id?String(d.order_id).slice(0,8):"Not materialized")+' · '+Number(d.quantity_litres||0)+' L</span></div>').join("")+'</div>':'<div class="empty-admin">No scheduled deliveries.</div>')+'</article></div></div>';
+    $("backSubscriptions").onclick=()=>loadSection("subscriptions");
+  }catch(error){alert(error.message||"Unable to load subscription.")}
+}
 async function loadSection(next){
  section=next;
  document.querySelectorAll("[data-section]").forEach(x=>x.classList.toggle("active",x.dataset.section===section));
@@ -199,8 +224,8 @@ async function loadSection(next){
     return;
   }
   if(section==="providers"){await loadProvidersSection();return}
-  if(section==="customers"){cache.customers=await adminRpc("admin_list_customers",{p_limit:150});table("Customers",[["Customer",r=>esc(r.full_name||"—")],["Email",r=>esc(r.email||"—")],["Phone",r=>esc(r.phone||"—")],["Orders",r=>r.order_count],["Active plans",r=>r.active_plan_count],["Joined",r=>dateText(r.created_at)]],cache.customers);return}
-  if(section==="subscriptions"){cache.subscriptions=await adminRpc("admin_list_subscriptions",{p_limit:150});table("Subscriptions",[["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Milk",r=>esc(r.product_name||"—")],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Qty",r=>Number(r.quantity_litres||0)+" L"],["Period",r=>dateText(r.start_date)+" → "+dateText(r.end_date)],["Deliveries",r=>r.delivery_count]],cache.subscriptions);return}
+  if(section==="customers"){cache.customers=await adminRpc("admin_list_customers",{p_limit:150});table("Customers",[["Customer",r=>"<button data-customer='"+esc(r.id)+"'>"+esc(r.full_name||"—")+"</button>"],["Email",r=>esc(r.email||"—")],["Phone",r=>esc(r.phone||"—")],["Orders",r=>r.order_count],["Active plans",r=>r.active_plan_count],["Joined",r=>dateText(r.created_at)]],cache.customers);$("adminContent").querySelectorAll("[data-customer]").forEach(b=>b.onclick=()=>showCustomerDetail(b.dataset.customer));return}
+  if(section==="subscriptions"){cache.subscriptions=await adminRpc("admin_list_subscriptions",{p_limit:150});table("Subscriptions",[["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Milk",r=>esc(r.product_name||"—")],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Qty",r=>Number(r.quantity_litres||0)+" L"],["Period",r=>dateText(r.start_date)+" → "+dateText(r.end_date)],["Deliveries",r=>r.delivery_count],["Action",r=>'<button data-subscription="'+esc(r.id)+'">View</button>']],cache.subscriptions);$("adminContent").querySelectorAll("[data-subscription]").forEach(b=>b.onclick=()=>showSubscriptionDetail(b.dataset.subscription));return}
   if(section==="products"){await loadProductsSection();return}
   if(section==="audit"){await loadAuditSection();return}
   if(section==="settings"){$("adminContent").innerHTML='<div class="admin-section"><div class="admin-card"><span class="eyebrow">OWNER SETTINGS</span><h3>Secure control configuration</h3><div class="admin-note">Admin access is controlled by the private <code>admin_allowlist</code>. The admin URL itself is not a security boundary. Add or remove owner emails only through your secure Supabase owner workflow. Never put a service-role key in the frontend.</div><div class="settings-grid"><div><b>Live database</b><span>Supabase · ap-south-1</span></div><div><b>Order model</b><span>Realtime lifecycle + provider capacity</span></div><div><b>Subscriptions</b><span>Scheduled deliveries materialized automatically</span></div><div><b>Marketplace</b><span>Location + provider service-radius discovery</span></div></div></div></div>';return}
