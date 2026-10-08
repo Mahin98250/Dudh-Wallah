@@ -109,7 +109,7 @@ async function toggleStoreStatus(){
  const b=$("providerStoreToggle");if(b){b.disabled=true;b.textContent=next?"Resuming…":"Pausing…"}
  try{
   const {data:userData}=await Doodhwala.supabase.auth.getUser();const user=userData?.user;if(!user)throw new Error("Please sign in again.");
-  const {error}=await Doodhwala.supabase.from("provider_profiles").update({accepting_orders:next,updated_at:new Date().toISOString()}).eq("id",provider.backendProviderId).eq("owner_user_id",user.id);
+  const {error}=await Doodhwala.supabase.rpc("provider_set_store_status",{p_provider_id:provider.backendProviderId,p_accepting_orders:next});
   if(error)throw error;
   provider.acceptingOrders=next;save();renderStoreStatus();toast(next?"Store is live — new orders enabled":"Store paused — no new orders will be accepted");
  }catch(err){toast(err.message||"Could not change store status");renderStoreStatus()}
