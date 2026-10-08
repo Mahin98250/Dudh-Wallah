@@ -51,27 +51,12 @@
   function navigate(key) {
     const file = (location.pathname.split("/").pop() || "index.html").toLowerCase();
     const home = file === "" || file === "index.html";
-    if (key === "home") {
-      if (home) window.scrollTo({top: 0, behavior: "smooth"});
-      else location.href = BASE;
-      return;
-    }
-    if (key === "explore") {
-      if (home && typeof window.__doodhwalaNavigate === "function") window.__doodhwalaNavigate("providers");
-      else location.href = BASE + "?view=providers";
-      return;
-    }
+    if (key === "home") { if (home) window.scrollTo({top: 0, behavior: "smooth"}); else location.href = BASE; return; }
+    if (key === "explore") { if (home && typeof window.__doodhwalaNavigate === "function") window.__doodhwalaNavigate("providers"); else location.href = BASE + "?view=providers"; return; }
     if (key === "plans") { location.href = BASE + "plans.html"; return; }
     if (key === "orders") { location.href = BASE + "orders.html"; return; }
-    if (key === "saved") {
-      if (home && typeof window.__doodhwalaNavigate === "function") window.__doodhwalaNavigate("saved");
-      else location.href = BASE + "?view=saved";
-      return;
-    }
-    if (key === "cart") {
-      if (home && typeof window.openCart === "function") window.openCart();
-      else location.href = BASE + "?cart=1";
-    }
+    if (key === "saved") { if (home && typeof window.__doodhwalaNavigate === "function") window.__doodhwalaNavigate("saved"); else location.href = BASE + "?view=saved"; return; }
+    if (key === "cart") { if (home && typeof window.openCart === "function") window.openCart(); else location.href = BASE + "?cart=1"; }
   }
   function installStyles() {
     if (document.getElementById("doodhwalaCustomerNavStyles")) return;
@@ -91,54 +76,33 @@
         .customer-nav-badge{position:absolute;top:4px;right:15%;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#e7b95e;color:#392d13;font-size:7px!important;line-height:18px!important;text-align:center;font-weight:900!important;display:none!important}
         .customer-nav-badge.show{display:block!important}
       }
-      @media(max-width:360px){
-        .customer-bottom-nav{left:5px;right:5px}
-        .customer-nav-item svg{width:19px;height:19px}
-        .customer-nav-item span{font-size:7px}
-      }`;
+      @media(max-width:360px){.customer-bottom-nav{left:5px;right:5px}.customer-nav-item svg{width:19px;height:19px}.customer-nav-item span{font-size:7px}}
+    `;
     document.head.appendChild(style);
+  }
+  function loadScriptOnce(src,marker){
+    if (document.querySelector('script['+marker+']')) return;
+    const s=document.createElement("script");s.src=src;s.setAttribute(marker,"1");document.body.appendChild(s);
   }
   function mount() {
     if (!document.body) return;
-    installStyles();
-    document.body.classList.add("has-customer-nav");
-    let nav = document.querySelector(".customer-bottom-nav");
-    const legacy = document.querySelector(".bottom");
-    if (!nav) {
-      nav = legacy || document.createElement("nav");
-      nav.className = "customer-bottom-nav";
-      if (!legacy) document.body.appendChild(nav);
+    installStyles();document.body.classList.add("has-customer-nav");
+    let nav=document.querySelector(".customer-bottom-nav"),legacy=document.querySelector(".bottom");
+    if(!nav){nav=legacy||document.createElement("nav");nav.className="customer-bottom-nav";if(!legacy)document.body.appendChild(nav)}
+    nav.setAttribute("aria-label","Doodhwala navigation");
+    nav.innerHTML=[item("home","Home"),item("explore","Explore"),item("plans","Plans"),item("orders","Orders"),item("saved","Saved"),item("cart","Cart","is-cart")].join("");
+    nav.querySelectorAll("[data-customer-nav]").forEach(btn=>btn.addEventListener("click",()=>navigate(btn.dataset.customerNav)));
+    setActive(nav);updateCartBadge(nav);
+    window.addEventListener("storage",()=>updateCartBadge(nav));window.addEventListener("doodhwala:cart-updated",()=>updateCartBadge(nav));window.addEventListener("popstate",()=>setActive(nav));
+    const params=new URLSearchParams(location.search);
+    if(getPage()==="home"){
+      const initialView=params.get("view");
+      if(initialView==="providers"||initialView==="saved")setTimeout(()=>{document.querySelector('[data-go="'+initialView+'"]')?.click();setActive(nav)},0);
+      if(params.get("cart")==="1")setTimeout(()=>window.openCart?.(),80);
     }
-    nav.setAttribute("aria-label", "Doodhwala navigation");
-    nav.innerHTML = [item("home","Home"),item("explore","Explore"),item("plans","Plans"),item("orders","Orders"),item("saved","Saved"),item("cart","Cart","is-cart")].join("");
-    nav.querySelectorAll("[data-customer-nav]").forEach(btn => btn.addEventListener("click", () => navigate(btn.dataset.customerNav)));
-    setActive(nav);
-    updateCartBadge(nav);
-    window.addEventListener("storage", () => updateCartBadge(nav));
-    window.addEventListener("doodhwala:cart-updated", () => updateCartBadge(nav));
-    window.addEventListener("popstate", () => setActive(nav));
-    const params = new URLSearchParams(location.search);
-    if (getPage() === "home") {
-      const initialView = params.get("view");
-      if (initialView === "providers" || initialView === "saved") {
-        setTimeout(() => {
-          const target = document.querySelector('[data-go="' + initialView + '"]');
-          if (target) target.click();
-          setActive(nav);
-        }, 0);
-      }
-      if (params.get("cart") === "1") {
-        setTimeout(() => { if (typeof window.openCart === "function") window.openCart(); }, 80);
-      }
-    }
-    window.DoodhwalaCustomerNav = { navigate, updateCartBadge: () => updateCartBadge(nav) };
-    if (!document.querySelector('script[data-doodhwala-10x]')) {
-      const featureScript=document.createElement("script");
-      featureScript.src=BASE+"customer-10x.js?v=20261008.1";
-      featureScript.dataset.doodhwala10x="1";
-      document.body.appendChild(featureScript);
-    }
+    window.DoodhwalaCustomerNav={navigate,updateCartBadge:()=>updateCartBadge(nav)};
+    loadScriptOnce(BASE+"customer-10x.js?v=20261008.1","data-doodhwala-10x");
+    loadScriptOnce(BASE+"customer-market-10x.js?v=20261008.1","data-doodhwala-market-10x");
   }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount, {once:true});
-  else mount();
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount,{once:true});else mount();
 })();
