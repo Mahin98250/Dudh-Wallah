@@ -189,7 +189,13 @@ async function loadSection(next){
  $("adminTitle").textContent=section==="overview"?"Business overview":section[0].toUpperCase()+section.slice(1);
  try{
   if(section==="overview"){await loadOverview();return}
-  if(section==="orders"){cache.orders=await adminRpc("admin_list_orders",{p_limit:150});table("Orders",[["Order ID",r=>"<code>"+esc(String(r.id).slice(0,8))+"</code>"],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Total",r=>money(r.total)],["Promise",r=>r.promised_delivery_at?dateTime(r.promised_delivery_at):"—"],["Created",r=>dateTime(r.created_at)]],cache.orders);return}
+  if(section==="orders"){
+    cache.orders=await adminRpc("admin_list_orders",{p_limit:150});
+    const rows=cache.orders||[];
+    table("Orders",[["Order ID",r=>"<code>"+esc(String(r.id).slice(0,8))+"</code>"],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Total",r=>money(r.total)],["Promise",r=>r.promised_delivery_at?dateTime(r.promised_delivery_at):"—"],["Created",r=>dateTime(r.created_at)],["Action",r=>'<button data-order="'+esc(r.id)+'">View</button>']],rows);
+    $("adminContent").querySelectorAll("[data-order]").forEach(b=>b.onclick=()=>showOrderDetail(b.dataset.order));
+    return;
+  }
   if(section==="providers"){await loadProvidersSection();return}
   if(section==="customers"){cache.customers=await adminRpc("admin_list_customers",{p_limit:150});table("Customers",[["Customer",r=>esc(r.full_name||"—")],["Email",r=>esc(r.email||"—")],["Phone",r=>esc(r.phone||"—")],["Orders",r=>r.order_count],["Active plans",r=>r.active_plan_count],["Joined",r=>dateText(r.created_at)]],cache.customers);return}
   if(section==="subscriptions"){cache.subscriptions=await adminRpc("admin_list_subscriptions",{p_limit:150});table("Subscriptions",[["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Milk",r=>esc(r.product_name||"—")],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Qty",r=>Number(r.quantity_litres||0)+" L"],["Period",r=>dateText(r.start_date)+" → "+dateText(r.end_date)],["Deliveries",r=>r.delivery_count]],cache.subscriptions);return}
