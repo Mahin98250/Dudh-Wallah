@@ -145,6 +145,52 @@ function renderChecklist(){
  $("checklist").querySelectorAll("[data-check-view]").forEach(b=>b.onclick=()=>showView(b.dataset.checkView))
 }
 function showView(view){document.querySelectorAll(".provider-view").forEach(v=>v.classList.toggle("active",v.id==="view-"+view));document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===view));if(view==="orders")loadProviderOrders();if(view==="route")loadProviderRoute(routeDate)}
+async function setupProviderSubscriptionRealtime(user){
+ if(!window.Doodhwala?.configured||!user||window.__doodhwalaProviderSubscriptionChannel)return;
+ const refresh=function(){
+  clearTimeout(window.__providerSubscriptionRealtimeRefresh);
+  window.__providerSubscriptionRealtimeRefresh=setTimeout(function(){
+   if(document.visibilityState!=="hidden")loadProviderSubscriptions().catch(function(err){console.warn("Subscription refresh failed",err)});
+  },350);
+ };
+ const channel=Doodhwala.supabase.channel("provider-subscriptions-"+user.id)
+  .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions"},refresh)
+  .on("postgres_changes",{event:"*",schema:"public",table:"subscription_deliveries"},refresh);
+ window.__doodhwalaProviderSubscriptionChannel=channel;
+ channel.subscribe(function(status){
+  if(status==="SUBSCRIBED"){window.__providerSubscriptionReconnectAttempt=0;return}
+  if(!["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(status))return;
+  const attempt=Math.min(6,Number(window.__providerSubscriptionReconnectAttempt||0)+1);
+  window.__providerSubscriptionReconnectAttempt=attempt;
+  clearTimeout(window.__providerSubscriptionReconnectTimer);
+  const delay=Math.min(30000,1000*Math.pow(2,attempt-1));
+  window.__providerSubscriptionReconnectTimer=setTimeout(function(){
+   const stale=window.__doodhwalaProviderSubscriptionChannel;
+   window.__doodhwalaProviderSubscriptionChannel=null;
+   try{if(stale)Doodhwala.supabase.removeChannel(stale)}catch(_){}
+   setupProviderSubscriptionRealtime(user);
+  },delay);
+ });
+}
+async function loadProviderSubscriptions(){
+ const state=$("providerSubscriptionState"),list=$("providerSubscriptions");if(!state||!list)return;
+ if(!window.Doodhwala?.configured){state.textContent="Supabase is not configured.";list.innerHTML="";return}
+ const {data:userData}=await Doodhwala.supabase.auth.getUser(),user=userData?.user;
+ if(!user){state.textContent="Sign in to view recurring customers.";list.innerHTML="";return}
+ await setupProviderSubscriptionRealtime(user);
+ const {data,error}=await Doodhwala.supabase.rpc("provider_get_subscriptions",{p_limit:100});
+ if(error){state.textContent=error.message;list.innerHTML="";return}
+ const rows=data||[];
+ const active=rows.filter(s=>s.status==="active").length;
+ const paused=rows.filter(s=>s.status==="paused").length;
+ const litres=rows.filter(s=>s.status==="active").reduce((sum,s)=>sum+Number(s.quantity_litres||0),0);
+ state.textContent=rows.length?rows.length+" subscription"+(rows.length===1?"":"s")+" · "+active+" active · "+litres.toLocaleString("en-IN",{maximumFractionDigits:2})+" L per scheduled delivery":"No recurring subscriptions yet";
+ if(!rows.length){list.innerHTML='<div class="order-empty"><b>No recurring customers yet.</b><span>When customers start milk plans with your provider, their schedules will appear here automatically.</span></div>';return}
+ list.innerHTML=rows.map(function(s){
+  const days=Array.isArray(s.days_of_week)?s.days_of_week.join(", "):"—";
+  return '<article class="provider-subscription"><div class="provider-sub-head"><div><b>'+escapeHtml(s.customer_name||"Customer")+'</b><span>'+escapeHtml(s.customer_phone||"")+'</span></div><span class="order-status '+escapeHtml(s.status)+'">'+escapeHtml(String(s.status||"").replace("_"," "))+'</span></div><div class="provider-sub-grid"><div><small>Milk</small><b>'+escapeHtml(s.product_name||"Milk")+'</b></div><div><small>Quantity</small><b>'+Number(s.quantity_litres||0)+' L</b></div><div><small>Price</small><b>'+orderMoney(s.price_per_litre)+'/L</b></div><div><small>Delivery time</small><b>'+escapeHtml(String(s.delivery_time||"—"))+'</b></div></div><div class="provider-sub-meta"><span>Days: '+escapeHtml(days)+'</span><span>'+dateText(s.start_date)+' → '+dateText(s.end_date)+'</span><span>'+Number(s.pending_deliveries||0)+' pending deliveries</span></div></article>'
+ }).join("");
+}
 document.querySelectorAll("[data-view]").forEach(btn=>btn.onclick=()=>showView(btn.dataset.view));
 document.querySelectorAll("[data-view-jump]").forEach(btn=>btn.onclick=()=>showView(btn.dataset.viewJump));
 async function persistProductToBackend(product){
