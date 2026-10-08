@@ -382,7 +382,46 @@ $("providerSignout")?.addEventListener("click",signOutProvider);
 $("providerTopSignout")?.addEventListener("click",signOutProvider);
 $("mobileProfile").onclick=()=>showView("profile");
 $("resetProvider").onclick=()=>{if(!confirm("Reset the Phase 2 demo provider and return to onboarding?"))return;localStorage.removeItem(STORAGE_KEY);location.reload()};
-if(provider.providerName){onboarding.classList.add("hidden");dashboard.classList.remove("hidden");hydrateDashboard();renderStoreStatus();if(window.Doodhwala?.configured){Doodhwala.supabase.auth.getUser().then(function(r){if(r.data?.user){$("providerAuthLink").textContent="Account";$("providerAuthLink").href="/Dudh-Wallah/provider.html";refreshStoreStatus().then(function(){return syncProviderBackend()}).then(function(res){$("providerMode").textContent=res.ok?(res.hasLocation?"CONNECTED • PENDING VERIFICATION":"CONNECTED • ADD LOCATION"):"LOCAL DEMO"}).catch(function(){})}})}}else{$("providerName").value=provider.providerName||"";$("ownerName").value=provider.ownerName||"";$("phone").value=provider.phone||"";$("providerType").value=""}
+async function bootProvider(){
+ try{
+  if(window.Doodhwala?.configured){
+    const live=await loadProviderBackendState();
+    if(live.ok){
+      onboarding.classList.add("hidden");dashboard.classList.remove("hidden");
+      hydrateDashboard();renderStoreStatus();
+      $("providerAuthLink").textContent="Account";$("providerAuthLink").href="/Dudh-Wallah/provider.html";
+      const v=provider.verificationStatus||"pending";
+      $("providerMode").textContent=v==="approved"?"CONNECTED • APPROVED":v==="rejected"?"CONNECTED • REJECTED":"CONNECTED • PENDING";
+      return;
+    }
+  }
+ }catch(err){console.warn("Provider bootstrap failed",err)}
+ if(provider.providerName){
+   onboarding.classList.add("hidden");dashboard.classList.remove("hidden");
+   hydrateDashboard();renderStoreStatus();
+   if(window.Doodhwala?.configured){
+     const auth=await Doodhwala.supabase.auth.getUser();
+     if(auth.data?.user){
+       $("providerAuthLink").textContent="Account";
+       $("providerAuthLink").href="/Dudh-Wallah/provider.html";
+       try{
+         const res=await syncProviderBackend();
+         if(res.ok){
+           await loadProviderBackendState();
+           const v=provider.verificationStatus||"pending";
+           $("providerMode").textContent=v==="approved"?"CONNECTED • APPROVED":v==="rejected"?"CONNECTED • REJECTED":(res.hasLocation?"CONNECTED • PENDING":"CONNECTED • ADD LOCATION");
+           hydrateDashboard();
+         }else if(res.reason==="not_signed_in"){
+           $("providerMode").textContent="LOCAL DEMO";
+         }
+       }catch(err){console.warn("Provider backend sync failed",err);$("providerMode").textContent="LOCAL DEMO"}
+     }
+   }
+ }else{
+   $("providerName").value="";$("ownerName").value="";$("phone").value="";$("providerType").value="";
+ }
+}
+bootProvider();
 document.addEventListener("visibilitychange",function(){
  if(document.visibilityState==="visible"&&dashboard&&!dashboard.classList.contains("hidden")){
    loadProviderRoute(routeDate).catch(function(err){console.warn("Provider route resume refresh failed",err)});
