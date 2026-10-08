@@ -170,6 +170,19 @@ function setupAdminRealtime(){
   },delay);
  });
 }
+async function showOrderDetail(id){
+  try{
+    const {data,error}=await Doodhwala.supabase.rpc("admin_get_order_detail",{p_order_id:id});
+    if(error)throw error;
+    const o=data.order||{},items=data.items||[],timeline=data.timeline||[];
+    $("adminContent").innerHTML='<div class="admin-section"><div class="admin-detail-head"><button id="backOrders">← Orders</button><div><span class="eyebrow">ORDER DETAIL</span><h2>Order '+esc(String(o.id).slice(0,8))+'</h2><p>'+esc(o.customer_name||"")+' · '+esc(o.provider_name||"")+'</p></div></div>'+
+      '<div class="metric-grid"><div class="metric"><small>STATUS</small><b>'+esc(o.status||"—")+'</b><span>Current state</span></div><div class="metric"><small>TOTAL</small><b>'+money(o.total)+'</b><span>Order value</span></div><div class="metric"><small>CREATED</small><b>'+dateTime(o.created_at)+'</b><span>Received</span></div><div class="metric"><small>PROMISE</small><b>'+dateTime(o.promised_delivery_at)+'</b><span>Expected delivery</span></div></div>'+
+      '<div class="admin-detail-grid"><article class="admin-card"><h3>Items</h3>'+(items.length?'<div class="detail-list">'+items.map(i=>'<div><b>'+esc(i.product_name_snapshot||"Item")+'</b><span>'+Number(i.quantity||0).toLocaleString("en-IN")+' × '+money(i.unit_price)+' = '+money(i.line_total)+'</span></div>').join("")+'</div>':'<div class="empty-admin">No items.</div>')+'</article>'+
+      '<article class="admin-card"><h3>Delivery</h3><div class="detail-list"><div><b>'+esc(o.delivery_recipient_name||"—")+'</b><span>'+esc(o.delivery_phone||"—")+'</span></div><div><b>'+esc([o.delivery_area_name,o.delivery_city,o.delivery_pin_code].filter(Boolean).join(", ")||"—")+'</b><span>'+esc(o.delivery_address_line||"—")+'</span></div><div><b>Customer note</b><span>'+esc(o.customer_note||"—")+'</span></div><div><b>Status reason</b><span>'+esc(o.status_reason||"—")+'</span></div></div></article></div>'+
+      '<article class="admin-card"><h3>Status timeline</h3>'+(timeline.length?'<div class="timeline-admin">'+timeline.map(t=>'<div><i></i><b>'+esc(t.to_status||"—")+'</b><span>'+dateTime(t.created_at)+(t.reason?" · "+esc(t.reason):"")+'</span></div>').join("")+'</div>':'<div class="empty-admin">No status events yet.</div>')+'</article></div>';
+    $("backOrders").onclick=()=>loadSection("orders");
+  }catch(error){alert(error.message||"Unable to load order.")}
+}
 async function loadSection(next){
  section=next;
  document.querySelectorAll("[data-section]").forEach(x=>x.classList.toggle("active",x.dataset.section===section));
