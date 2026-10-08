@@ -374,16 +374,31 @@ async function loadProviderOrders(){
  if(!user){state.textContent="Sign in to manage live orders.";list.innerHTML="";return}
  const profile=await Doodhwala.supabase.from("provider_profiles").select("id,acceptance_timeout_minutes,max_open_orders,max_daily_litres").eq("owner_user_id",user.id).limit(1).maybeSingle();
  if(profile.error){state.textContent=profile.error.message;return}
- if(!profile.data){state.textContent="Complete provider onboarding first.";list.innerHTML="";return}if(!window.__doodhwalaProviderOrdersChannel){
- window.__doodhwalaProviderOrdersChannel=Doodhwala.supabase.channel("provider-orders-"+user.id)
- .on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"provider_owner_id=eq."+user.id},function(payload){
-   if(payload?.eventType==="INSERT"&&payload?.new?.status==="placed"){
-     toast("New customer order received");
-     try{navigator.vibrate?.([120,60,120])}catch(_){}
-   }
-   clearTimeout(window.__providerRealtimeRefresh);window.__providerRealtimeRefresh=setTimeout(loadProviderOrders,250)
- }).subscribe()
+ if(!profile.data){state.textContent="Complete provider onboarding first.";list.innerHTML="";return}async function setupProviderOrderRealtime(user){
+ if(!window.Doodhwala?.configured||!user||window.__doodhwalaProviderOrdersChannel)return;
+ const channel=Doodhwala.supabase.channel("provider-orders-"+user.id)
+  .on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"provider_owner_id=eq."+user.id},function(payload){
+   if(payload?.eventType==="INSERT"&&payload?.new?.status==="placed"){toast("New customer order received");try{navigator.vibrate?.([120,60,120])}catch(_){}}
+   clearTimeout(window.__providerRealtimeRefresh);window.__providerRealtimeRefresh=setTimeout(loadProviderOrders,250);
+  });
+ window.__doodhwalaProviderOrdersChannel=channel;
+ channel.subscribe(function(status){
+  if(status==="SUBSCRIBED"){window.__providerOrdersReconnectAttempt=0;return}
+  if(!["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(status))return;
+  const attempt=Math.min(6,Number(window.__providerOrdersReconnectAttempt||0)+1);
+  window.__providerOrdersReconnectAttempt=attempt;
+  clearTimeout(window.__providerOrdersReconnectTimer);
+  const delay=Math.min(30000,1000*Math.pow(2,attempt-1));
+  window.__providerOrdersReconnectTimer=setTimeout(function(){
+   const stale=window.__doodhwalaProviderOrdersChannel;
+   window.__doodhwalaProviderOrdersChannel=null;
+   try{if(stale)Doodhwala.supabase.removeChannel(stale)}catch(_){}
+   setupProviderOrderRealtime(user);
+   loadProviderOrders().catch(function(err){console.warn("Provider orders reconnect refresh failed",err)});
+  },delay);
+ });
 }
+await setupProviderOrderRealtime(user)
  const result=await Doodhwala.supabase.from("orders").select("id,status,status_reason,subtotal,delivery_fee,total,customer_note,created_at,acceptance_deadline_at,estimated_delivery_min_minutes,estimated_delivery_max_minutes,promised_delivery_at,late_after_at,delivery_recipient_name,delivery_phone,delivery_address_line,delivery_area_name,delivery_city,delivery_pin_code,order_items(product_name_snapshot,quantity,unit_price,line_total)").eq("provider_id",profile.data.id).order("created_at",{ascending:false}).limit(50);
  if(result.error){state.textContent=result.error.message;list.innerHTML="";return}
  const orders=result.data||[];
@@ -431,6 +446,7 @@ async function loadProviderOrders(){
   }
 })
 }
+$("refreshSubscriptions")?.addEventListener("click",loadProviderSubscriptions);
 $("orderFilter")?.addEventListener("change",loadProviderOrders);
 $("refreshOrders")?.addEventListener("click",loadProviderOrders);
 clearInterval(window.__providerDeadlineTimer);window.__providerDeadlineTimer=setInterval(refreshOrderDeadlines,1000);
