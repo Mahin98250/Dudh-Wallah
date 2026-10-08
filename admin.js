@@ -231,19 +231,76 @@ async function showSubscriptionDetail(id){
     $("backSubscriptions").onclick=()=>loadSection("subscriptions");
   }catch(error){alert(error.message||"Unable to load subscription.")}
 }
+function orderUrgency(o){
+ const status=String(o.status||"").toLowerCase();
+ if(status==="placed")return "urgent";
+ if(["delivered","cancelled","rejected"].includes(status))return "closed";
+ if(o.late_after_at&&new Date(o.late_after_at).getTime()<Date.now())return "late";
+ if(o.promised_delivery_at&&new Date(o.promised_delivery_at).getTime()<Date.now())return "at-risk";
+ return "normal";
+}
+function renderOrdersRows(rows){
+ return rows.map(r=>{
+   const urgency=orderUrgency(r);
+   const label=urgency==="urgent"?"Needs acceptance":urgency==="late"?"Late":urgency==="at-risk"?"At risk":urgency==="closed"?"Closed":"On track";
+   return '<tr class="ops-row '+urgency+'">'+
+    '<td><button class="row-link" data-order="'+esc(r.id)+'"><b>#'+esc(String(r.id).slice(0,8))+'</b></button><small>'+dateTime(r.created_at)+'</small></td>'+
+    '<td><span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span><small class="ops-label">'+label+'</small></td>'+
+    '<td><b>'+esc(r.customer_name||"—")+'</b></td>'+
+    '<td>'+esc(r.provider_name||"—")+'</td>'+
+    '<td><b>'+money(r.total)+'</b></td>'+
+    '<td>'+(r.promised_delivery_at?dateTime(r.promised_delivery_at):"—")+'</td>'+
+    '<td><button data-order="'+esc(r.id)+'">Open →</button></td></tr>';
+ }).join("");
+}
+async function loadOrdersSection(){
+ cache.orders=await adminRpc("admin_list_orders",{p_limit:200});
+ const all=cache.orders||[];
+ const urgent=all.filter(x=>orderUrgency(x)==="urgent").length;
+ const late=all.filter(x=>["late","at-risk"].includes(orderUrgency(x))).length;
+ const open=all.filter(x=>orderUrgency(x)!=="closed").length;
+ $("adminContent").innerHTML='<div class="admin-section"><div class="admin-card admin-list-card ops-card">'+
+  '<div class="admin-list-head"><div><span class="eyebrow">LIVE OPERATIONS</span><h3>Order command queue</h3><p class="ops-subtitle">'+open+' open · '+urgent+' awaiting acceptance · '+late+' at risk</p></div><button id="sectionRefresh">↻ Refresh</button></div>'+
+  '<div class="ops-toolbar"><input id="opsOrderSearch" type="search" placeholder="Search order, customer or provider…"><select id="opsStatus"><option value="all">All statuses</option><option value="placed">Placed</option><option value="accepted">Accepted</option><option value="preparing">Preparing</option><option value="ready">Ready</option><option value="out_for_delivery">Out for delivery</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option><option value="rejected">Rejected</option></select><select id="opsRisk"><option value="all">All priority</option><option value="urgent">Needs acceptance</option><option value="late">Late</option><option value="at-risk">At risk</option><option value="normal">On track</option><option value="closed">Closed</option></select><button id="opsClear">Clear</button></div>'+
+  '<div class="ops-chips"><button class="active" data-ops-preset="all">All <b>'+all.length+'</b></button><button data-ops-preset="urgent">Needs acceptance <b>'+urgent+'</b></button><button data-ops-preset="late">Late <b>'+late+'</b></button><button data-ops-preset="open">Open <b>'+open+'</b></button></div>'+
+  '<div class="table-scroll"><table class="table admin-table"><thead><tr><th>Order</th><th>Status</th><th>Customer</th><th>Provider</th><th>Total</th><th>Promise</th><th></th></tr></thead><tbody id="opsOrderBody"></tbody></table></div>'+
+  '<div id="opsEmpty" class="empty-admin hidden">No orders match these filters.</div></div></div>';
+ $("sectionRefresh").onclick=()=>loadSection("orders");
+ const search=$("opsOrderSearch"),status=$("opsStatus"),risk=$("opsRisk"),body=$("opsOrderBody"),empty=$("opsEmpty");
+ function draw(){
+   const q=search.value.trim().toLowerCase();
+   const rows=all.filter(r=>{
+     const hay=[r.id,r.customer_name,r.provider_name,r.status].filter(Boolean).join(" ").toLowerCase();
+     const matchesQ=!q||hay.includes(q);
+     const matchesStatus=status.value==="all"||String(r.status||"")===status.value;
+     const u=orderUrgency(r);
+     const matchesRisk=risk.value==="all"||u===risk.value;
+     return matchesQ&&matchesStatus&&matchesRisk;
+   });
+   body.innerHTML=renderOrdersRows(rows);
+   empty.classList.toggle("hidden",rows.length>0);
+   body.querySelectorAll("[data-order]").forEach(b=>b.onclick=()=>showOrderDetail(b.dataset.order));
+ }
+ [search,status,risk].forEach(x=>x.addEventListener("input",draw));
+ $("opsClear").onclick=()=>{search.value="";status.value="all";risk.value="all";draw()};
+ document.querySelectorAll("[data-ops-preset]").forEach(b=>b.onclick=()=>{
+   document.querySelectorAll("[data-ops-preset]").forEach(x=>x.classList.remove("active"));b.classList.add("active");
+   const p=b.dataset.opsPreset;
+   search.value="";
+   status.value="all";
+   risk.value=p==="all"?"all":p==="open"?"all":p;
+   draw();
+   if(p==="open") body.querySelectorAll(".ops-row.closed").forEach(x=>x.classList.add("hidden"));
+ });
+ draw();
+}
 async function loadSection(next){
  section=next;
  document.querySelectorAll("[data-section]").forEach(x=>x.classList.toggle("active",x.dataset.section===section));
  $("adminTitle").textContent=section==="overview"?"Business overview":section[0].toUpperCase()+section.slice(1);
  try{
   if(section==="overview"){await loadOverview();return}
-  if(section==="orders"){
-    cache.orders=await adminRpc("admin_list_orders",{p_limit:150});
-    const rows=cache.orders||[];
-    table("Orders",[["Order ID",r=>"<code>"+esc(String(r.id).slice(0,8))+"</code>"],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Total",r=>money(r.total)],["Promise",r=>r.promised_delivery_at?dateTime(r.promised_delivery_at):"—"],["Created",r=>dateTime(r.created_at)],["Action",r=>'<button data-order="'+esc(r.id)+'">View</button>']],rows);
-    $("adminContent").querySelectorAll("[data-order]").forEach(b=>b.onclick=()=>showOrderDetail(b.dataset.order));
-    return;
-  }
+  if(section==="orders"){await loadOrdersSection();return;}
   if(section==="providers"){await loadProvidersSection();return}
   if(section==="customers"){cache.customers=await adminRpc("admin_list_customers",{p_limit:150});table("Customers",[["Customer",r=>"<button data-customer='"+esc(r.id)+"'>"+esc(r.full_name||"—")+"</button>"],["Email",r=>esc(r.email||"—")],["Phone",r=>esc(r.phone||"—")],["Orders",r=>r.order_count],["Active plans",r=>r.active_plan_count],["Joined",r=>dateText(r.created_at)]],cache.customers);$("adminContent").querySelectorAll("[data-customer]").forEach(b=>b.onclick=()=>showCustomerDetail(b.dataset.customer));return}
   if(section==="subscriptions"){cache.subscriptions=await adminRpc("admin_list_subscriptions",{p_limit:150});table("Subscriptions",[["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Milk",r=>esc(r.product_name||"—")],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Qty",r=>Number(r.quantity_litres||0)+" L"],["Period",r=>dateText(r.start_date)+" → "+dateText(r.end_date)],["Deliveries",r=>r.delivery_count],["Action",r=>'<button data-subscription="'+esc(r.id)+'">View</button>']],cache.subscriptions);$("adminContent").querySelectorAll("[data-subscription]").forEach(b=>b.onclick=()=>showSubscriptionDetail(b.dataset.subscription));return}
