@@ -147,6 +147,29 @@ function renderChecklist(){
 function showView(view){document.querySelectorAll(".provider-view").forEach(v=>v.classList.toggle("active",v.id==="view-"+view));document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===view));if(view==="orders")loadProviderOrders();if(view==="route")loadProviderRoute(routeDate)}
 document.querySelectorAll("[data-view]").forEach(btn=>btn.onclick=()=>showView(btn.dataset.view));
 document.querySelectorAll("[data-view-jump]").forEach(btn=>btn.onclick=()=>showView(btn.dataset.viewJump));
+async function persistProductToBackend(product){
+  if(!window.Doodhwala?.configured||!provider.backendProviderId)return {ok:false,reason:"not_connected"};
+  const {data,error}=await Doodhwala.supabase.rpc("provider_upsert_product",{
+    p_provider_id:provider.backendProviderId,p_product_id:product.id||null,p_name:product.name,
+    p_milk_type:product.type||provider.type||"mixed",p_price_per_litre:Number(product.price||0),
+    p_unit_label:product.unit||"1 L",p_stock:Boolean(product.stock),p_daily_available:Boolean(product.days),
+    p_is_active:product.isActive!==false
+  });
+  if(error)throw error;
+  return {ok:true,data};
+}
+async function refreshProviderProducts(){
+ if(!window.Doodhwala?.configured||!provider.backendProviderId)return false;
+ const {data,error}=await Doodhwala.supabase.from("milk_products").select("id,name,milk_type,price_per_litre,unit_label,stock,daily_available,is_active").eq("provider_id",provider.backendProviderId).order("created_at",{ascending:false});
+ if(error)throw error;
+ provider.products=(data||[]).map(m=>({id:m.id,name:m.name,price:Number(m.price_per_litre||0),type:m.milk_type,stock:Boolean(m.stock),days:Boolean(m.daily_available),unit:m.unit_label||"1 L",isActive:m.is_active!==false}));
+ save();renderProducts();return true;
+}
+async function removeProductFromBackend(id){
+ if(!window.Doodhwala?.configured||!provider.backendProviderId)return {ok:false,reason:"not_connected"};
+ const {data,error}=await Doodhwala.supabase.rpc("provider_delete_product",{p_product_id:id});
+ if(error)throw error;return {ok:true,data};
+}
 function renderProducts(){
  const term=($("productSearch")?.value||"").toLowerCase().trim(),stockFilter=$("stockFilter")?.value||"all";
  const list=provider.products.filter(p=>(!term||p.name.toLowerCase().includes(term))&&(stockFilter==="all"||(stockFilter==="in"&&p.stock)||(stockFilter==="out"&&!p.stock)));
@@ -158,13 +181,45 @@ function escapeHtml(str){return String(str).replace(/[&<>"']/g,c=>({"&":"&amp;",
 function openProductEditor(id){
  const existing=id?provider.products.find(p=>p.id===id):null,modal=document.createElement("div");modal.className="product-modal";
  modal.innerHTML='<div class="product-modal-card"><div class="modal-top"><div><span class="eyebrow">'+(existing?"EDIT PRODUCT":"NEW PRODUCT")+'</span><h2>'+(existing?"Update milk details":"Add a milk product")+'</h2></div><button data-close>×</button></div><div class="form-grid"><label>Milk name<input id="mName" value="'+escapeHtml(existing?.name||"")+'" placeholder="Fresh cow milk"></label><label>Price per litre<input id="mPrice" inputmode="decimal" value="'+(existing?.price||"")+'" placeholder="68"></label><label>Milk type<select id="mType"><option value="cow">Cow milk</option><option value="buffalo">Buffalo milk</option><option value="a2">A2 milk</option><option value="mixed">Mixed</option></select></label><label>Availability<select id="mStock"><option value="true">In stock</option><option value="false">Unavailable</option></select></label></div><div class="modal-option-row"><label><input id="mDays" type="checkbox" '+(existing?.days!==false?"checked":"")+'> Available every day</label></div><div class="modal-actions"><button class="secondary" data-close>Cancel</button><button class="provider-primary" id="saveProductModal">'+(existing?"Save changes":"Add product")+' →</button></div></div>';
- document.body.append(modal);if(existing){$("mType").value=existing.type||"cow";$("mStock").value=String(existing.stock)}
+ document.body.append(modal);
+ if(existing){$("mType").value=existing.type||"cow";$("mStock").value=String(existing.stock)}
  const close=()=>modal.remove();modal.querySelectorAll("[data-close]").forEach(x=>x.onclick=close);
- $("saveProductModal").onclick=()=>{const name=$("mName").value.trim(),price=Number($("mPrice").value);if(!name||!price||price<=0){toast("Enter a product name and valid price");return}const data={name,price,type:$("mType").value,stock:$("mStock").value==="true",days:$("mDays").checked,unit:"1 L"};if(existing)Object.assign(existing,data);else provider.products.push({id:newUuid(),...data});save();renderProducts();hydrateDashboard();close();syncProviderBackend().then(function(){toast(existing?"Product updated":"Milk added to catalogue")}).catch(function(err){console.error(err);toast(existing?"Product updated locally; backend sync failed":"Milk added locally; backend sync failed")})}
+ $("saveProductModal").onclick=async()=>{
+  const name=$("mName").value.trim(),price=Number($("mPrice").value);
+  if(!name||!price||price<=0){toast("Enter a product name and valid price");return}
+  const product={id:existing?.id||newUuid(),name,price,type:$("mType").value,stock:$("mStock").value==="true",days:$("mDays").checked,unit:"1 L",isActive:true};
+  const button=$("saveProductModal");button.disabled=true;
+  try{
+    if(provider.backendProviderId){
+      await persistProductToBackend(product);
+      await refreshProviderProducts();
+      toast(existing?"Product updated":"Milk added to catalogue");
+    }else{
+      if(existing)Object.assign(existing,product);else provider.products.push(product);
+      save();renderProducts();hydrateDashboard();toast("Saved locally. Sign in to publish this product.");
+    }
+    close();
+  }catch(error){toast(error.message||"Unable to save product.");button.disabled=false;}
+ };
 }
-function toggleProduct(id){const p=provider.products.find(x=>x.id===id);if(!p)return;p.stock=!p.stock;save();renderProducts();hydrateDashboard();syncProviderBackend().catch(function(err){console.error(err)});toast(p.stock?"Product activated":"Product paused")}
-function deleteProduct(id){const p=provider.products.find(x=>x.id===id);if(!p)return;if(!confirm("Delete "+p.name+" from your catalogue?"))return;provider.products=provider.products.filter(x=>x.id!==id);save();renderProducts();hydrateDashboard();syncDeleteProduct(id).catch(function(err){console.error(err)});toast("Product deleted")}
+async function toggleProduct(id){
+ const p=provider.products.find(x=>x.id===id);if(!p)return;
+ if(provider.backendProviderId){
+  p.stock=!p.stock;
+  try{await persistProductToBackend(p);await refreshProviderProducts();toast(p.stock?"Product activated":"Product paused");}
+  catch(error){p.stock=!p.stock;save();toast(error.message||"Unable to update product.")}
+ }else{p.stock=!p.stock;save();renderProducts();hydrateDashboard();toast(p.stock?"Product activated":"Product paused");}
+}
+async function deleteProduct(id){
+ const p=provider.products.find(x=>x.id===id);if(!p)return;if(!confirm("Delete "+p.name+" from your catalogue?"))return;
+ try{
+  if(provider.backendProviderId){await removeProductFromBackend(id);await refreshProviderProducts();}
+  else{provider.products=provider.products.filter(x=>x.id!==id);save();renderProducts();hydrateDashboard();}
+  toast("Product deleted");
+ }catch(error){toast(error.message||"Unable to delete product.")}
+}
 $("addProduct").onclick=()=>openProductEditor();$("productSearch").oninput=renderProducts;$("stockFilter").onchange=renderProducts;
+
 function fillService(){$("dashBaseArea").value=provider.area||"";$("dashCity").value=provider.city||"";$("dashPin").value=provider.pin||"";$("dashRadius").value=provider.radius||"5";$("dashFrom").value=provider.from||"06:00";$("dashTo").value=provider.to||"09:00";$("maxDailyLitres").value=provider.maxDailyLitres||"250";$("maxOpenOrders").value=provider.maxOpenOrders||"25";$("acceptanceTimeout").value=provider.acceptanceTimeoutMinutes||"10";$("mapSummary").textContent=(provider.area||"Locality")+", "+(provider.radius||"5")+" km radius";window.dispatchEvent(new Event("doodhwala:provider-service-updated"))}
 $("saveService").onclick=()=>{if(!$("dashBaseArea").value.trim()||!/^\d{6}$/.test($("dashPin").value.trim())){toast("Enter locality and valid 6-digit PIN");return}provider.area=$("dashBaseArea").value.trim();provider.city=$("dashCity").value.trim()||"Ahmedabad";provider.pin=$("dashPin").value.trim();provider.radius=$("dashRadius").value;provider.from=$("dashFrom").value;provider.to=$("dashTo").value;save();hydrateDashboard();syncProviderBackend().then(function(r){toast(r.ok?(r.hasLocation?"Delivery area saved":"Area saved; location permission needed"):"Saved locally")}).catch(function(err){console.error(err);toast("Area saved locally; backend sync failed")})};
 function fillProfile(){$("dashProviderName").value=provider.providerName||"";$("dashOwnerName").value=provider.ownerName||"";$("dashPhone").value=provider.phone||"";$("dashType").value=provider.type||"cow";$("trustProfile").textContent=profilePercent()===100?"Complete":"Pending"}
