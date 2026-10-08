@@ -156,7 +156,7 @@
     if(ps.unavailable)alerts.push({tone:"warn",icon:"🥛",title:ps.unavailable+" milk item"+(ps.unavailable===1?" is":"s are")+" unavailable",detail:"Customers cannot order paused or out-of-stock catalogue items.",view:"products",cta:"Update stock"});
     if(provider?.backendProviderId&&!provider?.latitude&&!provider?.longitude)alerts.push({tone:"warn",icon:"⌖",title:"Service point not set",detail:"Nearby customer discovery needs a delivery location.",view:"service",cta:"Set area"});
     if(String(provider?.verificationStatus||"pending")!=="approved")alerts.push({tone:"warn",icon:"✓",title:"Marketplace verification pending",detail:"Customers will only discover the store after approval.",view:"profile",cta:"View status"});
-    if(!provider?.acceptingOrders&&provider?.backendProviderId)alerts.push({tone:"warn",icon:"Ⅱ",title:"Store is paused",detail:"New customer orders are currently blocked.",view:"overview",cta:"Resume store"});
+    if(!provider?.acceptingOrders&&provider?.backendProviderId)alerts.push({tone:"warn",icon:"Ⅱ",title:"Store is paused",detail:"New customer orders are currently blocked.",view:"overview",action:"resume-store",cta:"Resume store"});
     if(!alerts.length)alerts.push({tone:"ok",icon:"✓",title:"Store looks ready for today",detail:"No immediate operational blockers detected.",view:"overview",cta:"Great"});
     return alerts.slice(0,5);
   }
@@ -169,7 +169,7 @@
 
   function renderAttention(perf,metrics,ps){
     const alerts=readinessAlerts(perf,metrics,ps);
-    return `<article class="shop-card"><div class="shop-section-head"><div><span class="eyebrow">NEXT ACTIONS</span><h4>Nothing important hidden.</h4><p>Tap an action to jump straight to the right screen.</p></div><button class="shop-link" data-shop-refresh>Refresh</button></div><div class="shop-attention-list">${alerts.map(a=>`<div class="shop-attention ${a.tone}"><span class="shop-attention-icon">${a.icon}</span><div><b>${esc(a.title)}</b><span>${esc(a.detail)}</span></div><button data-shop-go="${a.view}">${esc(a.cta)}</button></div>`).join("")}</div></article>`;
+    return `<article class="shop-card"><div class="shop-section-head"><div><span class="eyebrow">NEXT ACTIONS</span><h4>Nothing important hidden.</h4><p>Tap an action to jump straight to the right screen.</p></div><button class="shop-link" data-shop-refresh>Refresh</button></div><div class="shop-attention-list">${alerts.map(a=>`<div class="shop-attention ${a.tone}"><span class="shop-attention-icon">${a.icon}</span><div><b>${esc(a.title)}</b><span>${esc(a.detail)}</span></div><button ${a.action?`data-shop-action="${esc(a.action)}`:`data-shop-go="${a.view}"`}>${esc(a.cta)}</button></div>`).join("")}</div></article>`;
   }
 
   function renderPipeline(metrics){
@@ -242,7 +242,7 @@
       <div class="shop-layout"><div style="display:grid;gap:14px">${renderAttention(perf,metrics,ps)}${renderPipeline(metrics)}${renderTrend(metrics)}</div><div style="display:grid;gap:14px">${renderCapacity(metrics)}${renderQuick()} ${renderLiveDeliveries(orders)}</div></div>
     </div>`;
 
-    host.querySelectorAll("[data-shop-go]").forEach(btn=>btn.addEventListener("click",()=>go(btn.dataset.shopGo)));
+    host.querySelectorAll("[data-shop-go]").forEach(btn=>btn.addEventListener("click",()=>go(btn.dataset.shopGo)));\n    host.querySelectorAll("[data-shop-action]").forEach(btn=>btn.addEventListener("click",async()=>{if(btn.dataset.shopAction!=="resume-store"||typeof toggleStoreStatus!=="function")return;btn.disabled=true;await toggleStoreStatus().catch(()=>{});setTimeout(refresh,200);}));
     host.querySelectorAll("[data-shop-refresh]").forEach(btn=>btn.addEventListener("click",refresh));
     host.querySelectorAll("[data-p10-live]").forEach(btn=>btn.addEventListener("click",()=>sharePosition(btn.dataset.p10Live,btn)));
   }
