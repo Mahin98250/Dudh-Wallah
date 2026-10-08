@@ -187,7 +187,7 @@ function openProductEditor(id){
  $("saveProductModal").onclick=async()=>{
   const name=$("mName").value.trim(),price=Number($("mPrice").value);
   if(!name||!price||price<=0){toast("Enter a product name and valid price");return}
-  const product={id:existing?.id||newUuid(),name,price,type:$("mType").value,stock:$("mStock").value==="true",days:$("mDays").checked,unit:"1 L",isActive:true};
+  const product={id:existing?.id||newUuid(),name,price,type:$("#mType").value,stock:$("#mStock").value==="true",days:$("#mDays").checked,unit:"1 L",isActive:existing?existing.isActive!==false:true};;
   const button=$("saveProductModal");button.disabled=true;
   try{
     if(provider.backendProviderId){
