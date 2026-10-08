@@ -151,7 +151,9 @@ function setupAdminRealtime(){
   })
   .on("postgres_changes",{event:"*",schema:"public",table:"provider_profiles"},refresh)
   .on("postgres_changes",{event:"*",schema:"public",table:"provider_verifications"},refresh)
-  .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions"},refresh)\n  .on("postgres_changes",{event:"*",schema:"public",table:"milk_products"},refresh)\n  .on("postgres_changes",{event:"*",schema:"public",table:"provider_service_areas"},refresh);
+  .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions"},refresh)
+  .on("postgres_changes",{event:"*",schema:"public",table:"milk_products"},refresh)
+  .on("postgres_changes",{event:"*",schema:"public",table:"provider_service_areas"},refresh);
  window.__doodhwalaAdminChannel=channel;
  channel.subscribe(function(status){
   if(status==="SUBSCRIBED"){window.__adminRealtimeReconnectAttempt=0;const s=$("adminLiveStatus");if(s){s.textContent="● Live";s.classList.remove("updating")}return}
