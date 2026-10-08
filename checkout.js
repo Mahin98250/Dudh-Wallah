@@ -4,6 +4,7 @@ let cart=JSON.parse(localStorage.getItem(CART_KEY)||"{}");
 let checkoutKeys=JSON.parse(localStorage.getItem(CHECKOUT_KEYS_KEY)||"{}");
 const $=id=>document.getElementById(id);
 let sessionUser=null;
+let appliedPromo=null;
 const LOCATION_KEY="doodhwala-customer-location-v1";
 function readCustomerLocation(){try{const v=JSON.parse(localStorage.getItem(LOCATION_KEY)||"null");if(v&&Number.isFinite(+v.latitude)&&Number.isFinite(+v.longitude))return{latitude:+v.latitude,longitude:+v.longitude,accuracy:+v.accuracy||null};}catch(_){}return null}
 function syncCheckoutLocation(){const pos=readCustomerLocation();const state=$("checkoutLocationState"),lat=$("addressLatitude"),lng=$("addressLongitude");if(pos){lat.value=pos.latitude;lng.value=pos.longitude;state.textContent="Pinned delivery location is ready";state.style.color="#17603f"}else{lat.value="";lng.value="";state.textContent="No exact location selected — set it from the location picker"}}
@@ -13,7 +14,7 @@ function showError(message){$("checkoutState").textContent=message;$("checkoutSt
 function friendlyOrderError(message){const m=String(message||"");const map={provider_order_capacity_full:"This provider is handling the maximum number of active orders right now. Please try another local provider.",provider_daily_capacity_full:"This provider has reached today's milk capacity. Please choose another local provider or try again later.",provider_unavailable:"This provider is no longer available for ordering.",product_unavailable:"One of the selected milk products is no longer available. Refresh the shop and try again.",invalid_cart_quantity:"The selected quantity is not valid.",delivery_location_required:"Set your delivery location before ordering from this provider.",outside_provider_service_area:"This address is outside the provider's delivery area. Choose another nearby provider or address.",idempotency_key_reuse_conflict:"This checkout request changed after it started. Return to the shop and start a fresh checkout."};return map[m]||m.replace(/^.*?:/,"").replace(/_/g," ")||"Could not place the order."}
 function cartEntries(){return Object.values(cart).filter(x=>x.qty>0)}
 function grouped(){const groups=new Map();for(const item of cartEntries()){if(!item.providerId||!item.productId)continue;const key=item.providerId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item)}return [...groups.entries()]}
-function renderItems(){const entries=cartEntries();if(!entries.length){$("checkoutItems").innerHTML='<div class="empty-provider-state"><div>🥛</div><h3>Your cart is empty</h3><p>Choose milk from a local provider first.</p><a class="primary checkout-cta" href="/Dudh-Wallah/">Back to shop →</a></div>';return}const valid=entries.filter(x=>x.providerId&&x.productId);const invalid=entries.length-valid.length;if(invalid){$("checkoutState").textContent="Your cart contains older demo items. Please add the milk again after the backend is connected.";$("checkoutState").style.color="#a46a22"}$("providerCount").textContent=grouped().length+" provider"+(grouped().length===1?"":"s");$("checkoutItems").innerHTML=valid.map(x=>'<div class="checkout-line"><div class="checkout-thumb">'+(x.emoji||"🥛")+'</div><div><h4>'+escapeHtml(x.milk)+'</h4><p>'+escapeHtml(x.provider)+" · "+money(x.unitPrice||0)+" / L · "+x.qty+" L"+'</p></div><b>'+money((x.unitPrice||0)*x.qty)+'</b></div>').join("");const subtotal=valid.reduce((s,x)=>s+(Number(x.unitPrice)||0)*x.qty,0);$("checkoutSubtotal").textContent=money(subtotal);$("checkoutTotal").textContent=money(subtotal)}
+function renderItems(){const entries=cartEntries();if(!entries.length){$("checkoutItems").innerHTML='<div class="empty-provider-state"><div>🥛</div><h3>Your cart is empty</h3><p>Choose milk from a local provider first.</p><a class="primary checkout-cta" href="/Dudh-Wallah/">Back to shop →</a></div>';return}const valid=entries.filter(x=>x.providerId&&x.productId);const invalid=entries.length-valid.length;if(invalid){$("checkoutState").textContent="Your cart contains older demo items. Please add the milk again after the backend is connected.";$("checkoutState").style.color="#a46a22"}$("providerCount").textContent=grouped().length+" provider"+(grouped().length===1?"":"s");$("checkoutItems").innerHTML=valid.map(x=>'<div class="checkout-line"><div class="checkout-thumb">'+(x.emoji||"🥛")+'</div><div><h4>'+escapeHtml(x.milk)+'</h4><p>'+escapeHtml(x.provider)+" · "+money(x.unitPrice||0)+" / L · "+x.qty+" L"+'</p></div><b>'+money((x.unitPrice||0)*x.qty)+'</b></div>').join("");const subtotal=valid.reduce((s,x)=>s+(Number(x.unitPrice)||0)*x.qty,0);$("checkoutSubtotal").textContent=money(subtotal);const discount=Number(appliedPromo?.discount_amount||0);const discountRow=$("checkoutDiscountRow");if(discountRow){discountRow.hidden=discount<=0;$("checkoutDiscount").textContent="−"+money(discount)}$("checkoutTotal").textContent=money(Math.max(0,subtotal-discount))}
 function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 async function load(){
  if(!window.Doodhwala.configured){$("checkoutState").textContent="Supabase credentials are not configured yet. The checkout UI is ready, but real orders are disabled.";$("checkoutState").style.color="#a46a22";return}
@@ -34,9 +35,24 @@ $("addressForm").onsubmit=async e=>{
  if(error){showError(error.message);return}
  window.__addressId=data.id;$("checkoutState").textContent="Address saved. Ready to place the order.";$("checkoutState").style.color="";
 };
+async function applyPromo(){
+ const input=$("promoCode"),state=$("promoState"),button=$("applyPromo");if(!input||!state||!button)return;
+ const code=input.value.trim().toUpperCase();if(!code){appliedPromo=null;state.textContent="Enter a promo code.";state.style.color="#a44c3e";renderItems();return}
+ const groups=grouped();if(groups.length!==1){appliedPromo=null;state.textContent="Promo codes are available when the cart contains one provider.";state.style.color="#a44c3e";renderItems();return}
+ const subtotal=cartEntries().filter(x=>x.providerId&&x.productId).filter(x=>x.providerId===groups[0][0]).reduce((s,x)=>s+(Number(x.unitPrice)||0)*x.qty,0);
+ if(subtotal<=0){state.textContent="Your cart has no valid items.";state.style.color="#a44c3e";return}
+ button.disabled=true;button.textContent="Checking…";state.textContent="Validating offer securely…";state.style.color="";
+ try{const {data,error}=await Doodhwala.supabase.rpc("preview_promo_code",{p_promo_code:code,p_subtotal:subtotal});if(error)throw error;if(data?.valid===false)throw new Error(data.reason||"Promo not applicable");appliedPromo={code:data.code||code,discount_amount:Number(data.discount_amount||data.discount||0),discount_label:data.discount_label||"Offer applied"};state.textContent=(appliedPromo.discount_label||"Offer applied")+" · savings "+money(appliedPromo.discount_amount);state.style.color="#17603f";renderItems()}
+ catch(err){appliedPromo=null;state.textContent=friendlyPromoError(err.message||err);state.style.color="#a44c3e";renderItems()}
+ finally{button.disabled=false;button.textContent="Apply"}
+}
+function friendlyPromoError(message){const m=String(message||"");if(/customer_limit_reached/.test(m))return"This offer has already been used on your account.";if(/usage_limit_reached/.test(m))return"This offer has reached its usage limit.";if(/min_order_value/.test(m))return"This order does not meet the minimum value for this offer.";if(/invalid_or_expired|promo not applicable/.test(m))return"This promo code is invalid or expired.";return m.replace(/^.*?:/,"").replace(/_/g," ")||"Promo code could not be applied."}
 function saveCheckoutKeys(){localStorage.setItem(CHECKOUT_KEYS_KEY,JSON.stringify(checkoutKeys))}
 function idempotencyKeyForProvider(providerId){if(!checkoutKeys[providerId])checkoutKeys[providerId]={key:(crypto.randomUUID?.()||String(Date.now())+"-"+Math.random())};saveCheckoutKeys();return checkoutKeys[providerId].key}
 function removeProviderFromCart(providerId){Object.keys(cart).forEach(function(k){if(cart[k]&&cart[k].providerId===providerId)delete cart[k]});localStorage.setItem(CART_KEY,JSON.stringify(cart));delete checkoutKeys[providerId];saveCheckoutKeys()}
+$("applyPromo")?.addEventListener("click",applyPromo);
+$("promoCode")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();applyPromo()}});
+
 $("placeOrder").onclick=async()=>{
  if(!sessionUser||!Doodhwala.configured){return}
  let addressId=window.__addressId;
@@ -47,7 +63,10 @@ $("placeOrder").onclick=async()=>{
  for(const [providerId,items] of groups){
    const payload=items.map(x=>({product_id:x.productId,quantity:x.qty}));
    const key=idempotencyKeyForProvider(providerId);
-   const {data,error}=await Doodhwala.supabase.rpc("create_order",{p_provider_id:providerId,p_address_id:addressId,p_items:payload,p_customer_note:$("orderNote").value.trim()||null,p_idempotency_key:key});
+   const rpcName=(appliedPromo&&groups.length===1)?"create_order_with_promo":"create_order";
+   const rpcArgs={p_provider_id:providerId,p_address_id:addressId,p_items:payload,p_customer_note:$("orderNote").value.trim()||null,p_idempotency_key:key};
+   if(rpcName==="create_order_with_promo")rpcArgs.p_promo_code=appliedPromo.code;
+   const {data,error}=await Doodhwala.supabase.rpc(rpcName,rpcArgs);
    if(error){failures.push(error);continue}
    orderIds.push(data);
    removeProviderFromCart(providerId);
