@@ -145,6 +145,34 @@ function renderChecklist(){
  $("checklist").querySelectorAll("[data-check-view]").forEach(b=>b.onclick=()=>showView(b.dataset.checkView))
 }
 function showView(view){document.querySelectorAll(".provider-view").forEach(v=>v.classList.toggle("active",v.id==="view-"+view));document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===view));if(view==="orders")loadProviderOrders();if(view==="route")loadProviderRoute(routeDate);if(view==="subscriptions")loadProviderSubscriptions()}
+async function setupProviderSubscriptionRealtime(user){
+ if(!window.Doodhwala?.configured||!user||window.__doodhwalaProviderSubscriptionChannel)return;
+ const refresh=function(){
+  clearTimeout(window.__providerSubscriptionRealtimeRefresh);
+  window.__providerSubscriptionRealtimeRefresh=setTimeout(function(){
+   if(document.visibilityState!=="hidden")loadProviderSubscriptions().catch(function(err){console.warn("Subscription refresh failed",err)});
+  },350);
+ };
+ const channel=Doodhwala.supabase.channel("provider-subscriptions-"+user.id)
+  .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions"},refresh)
+  .on("postgres_changes",{event:"*",schema:"public",table:"subscription_deliveries"},refresh);
+ window.__doodhwalaProviderSubscriptionChannel=channel;
+ channel.subscribe(function(status){
+  if(status==="SUBSCRIBED"){window.__providerSubscriptionReconnectAttempt=0;return}
+  if(!["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(status))return;
+  const attempt=Math.min(6,Number(window.__providerSubscriptionReconnectAttempt||0)+1);
+  window.__providerSubscriptionReconnectAttempt=attempt;
+  clearTimeout(window.__providerSubscriptionReconnectTimer);
+  const delay=Math.min(30000,1000*Math.pow(2,attempt-1));
+  window.__providerSubscriptionReconnectTimer=setTimeout(function(){
+   const stale=window.__doodhwalaProviderSubscriptionChannel;
+   window.__doodhwalaProviderSubscriptionChannel=null;
+   try{if(stale)Doodhwala.supabase.removeChannel(stale)}catch(_){}
+   setupProviderSubscriptionRealtime(user);
+   if(document.visibilityState!=="hidden")loadProviderSubscriptions().catch(function(err){console.warn("Subscription reconnect refresh failed",err)});
+  },delay);
+ });
+}
 async function loadProviderSubscriptions(){
  const state=$("providerSubscriptionState"),list=$("providerSubscriptions");if(!state||!list)return;
  if(!window.Doodhwala?.configured){state.textContent="Supabase is not configured.";list.innerHTML="";return}
