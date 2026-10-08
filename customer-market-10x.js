@@ -141,5 +141,5 @@
     }catch(e){console.warn("Customer marketplace 10X failed",e)}
   }
 
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount,{once:true});else setTimeout(mount,250);
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(mount,450),{once:true});else setTimeout(mount,450);
 })();
