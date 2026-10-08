@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-let overview=null,section="overview",cache={};
+let overview=null,section="overview",cache={},searchTerm="";
 
 function money(n){return "₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2})}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
@@ -16,7 +16,7 @@ async function boot(){
  if(check.error||check.data!==true){gateError("Owner access required. Add this owner's email to the private admin allowlist.");return}
  $("adminGate").classList.add("hidden");$("adminApp").classList.remove("hidden");setDefaultDates();setupAdminRealtime();
  $("adminSignout").onclick=async()=>{await Doodhwala.supabase.auth.signOut();location.href="/Dudh-Wallah/"};
- await loadSection("overview");
+ await loadSection("overview");prefetchAdminData();
 }
 async function loadOverview(){
  const {data,error}=await Doodhwala.supabase.rpc("get_admin_overview",{p_from:$("fromDate").value,p_to:$("toDate").value});
@@ -24,19 +24,40 @@ async function loadOverview(){
 }
 function renderOverview(){
  const c=$("adminContent"),days=overview.daily_sales||[],providers=overview.provider_sales||[],max=Math.max(1,...days.map(x=>Number(x.sales)||0)),top=providers.slice(0,8);
- c.innerHTML='<div class="admin-section"><div class="metric-grid">'+[
- ["GROSS SALES",money(overview.gross_sales),"Delivered orders only"],
- ["ORDERS",overview.orders,(overview.completed_orders||0)+" delivered"],
- ["MILK DELIVERED",Number(overview.milk_litres_delivered||0).toLocaleString("en-IN")+" L","Delivered orders"],
- ["ACTIVE PLANS",overview.active_subscriptions,(overview.scheduled_deliveries||0)+" scheduled"],
- ["CUSTOMERS",overview.customers,"Registered accounts"],
- ["PROVIDERS",overview.providers,(overview.approved_providers||0)+" approved"],
- ["CANCELLED",overview.cancelled_orders,"Period orders"],
- ["LATE",overview.late_orders||0,"Active orders past promise"],
- ["DELIVERY RATE",((overview.orders?overview.completed_orders/overview.orders*100:0).toFixed(1))+"%","Delivered / placed"]
- ].map(x=>'<div class="metric"><small>'+x[0]+'</small><b>'+x[1]+'</b><span>'+x[2]+'</span></div>').join("")+'</div><div class="admin-grid"><article class="admin-card"><h3>Daily sales</h3>'+(days.length?days.map(x=>'<div class="bar-row"><span>'+dateText(x.day)+'</span><div class="bar"><i style="width:'+Math.round(Number(x.sales)/max*100)+'%"></i></div><b>'+money(x.sales)+'</b></div>').join(""):'<div class="empty-admin">No sales in this period.</div>')+'</article><article class="admin-card"><h3>Provider performance</h3>'+(top.length?'<table class="table"><thead><tr><th>Provider</th><th>Delivered</th><th>Sales</th></tr></thead><tbody>'+top.map(x=>'<tr><td>'+esc(x.provider_name)+'</td><td>'+x.delivered_orders+'</td><td>'+money(x.sales)+'</td></tr>').join("")+'</tbody></table>':'<div class="empty-admin">No provider sales yet.</div>')+'</article></div><div class="admin-card" style="margin-top:12px"><h3>Owner accounting note</h3><div class="admin-note">Gross sales is marketplace GMV from delivered orders. It is not profit. Provider commissions, delivery costs, payment fees and refunds need a separate ledger before profit is shown.</div></div></div>';
-}
-function table(title,columns,rows,empty="No records yet."){
+ const orders=cache.orders||[],providerRows=cache.providers||[],productRows=cache.products||[];
+ const isOpenOrder=o=>!["delivered","cancelled","rejected"].includes(String(o.status||"").toLowerCase());
+ const late=orders.filter(o=>isOpenOrder(o)&&o.promised_delivery_at&&new Date(o.promised_delivery_at).getTime()<Date.now());
+ const placed=orders.filter(o=>String(o.status||"").toLowerCase()==="placed");
+ const pendingProviders=providerRows.filter(p=>String(p.verification_status||"pending").toLowerCase()==="pending");
+ const lowStock=productRows.filter(p=>!p.stock||!p.is_active);
+ const click=(label,value,note,go)=>'<div class="metric '+(go?"metric-clickable":"")+'" '+(go?'data-go="'+go+'"':'')+'><small>'+label+'</small><b>'+value+'</b><span>'+note+'</span>'+(go?'<i>Open →</i>':"")+'</div>';
+ c.innerHTML='<div class="admin-section">'+
+ '<div class="admin-hero"><div><span class="eyebrow">LIVE BUSINESS SNAPSHOT</span><h2>Good evening. Here is what needs your attention.</h2><p>Use the queue below for urgent work, then jump directly into any area.</p></div><div class="admin-hero-actions"><button data-go="orders">View live orders</button><button data-go="providers">Review providers</button></div></div>'+
+ '<div class="metric-grid">'+
+ click("GROSS SALES",money(overview.gross_sales),"Delivered orders only",null)+
+ click("ORDERS",overview.orders,(overview.completed_orders||0)+" delivered","orders")+
+ click("MILK DELIVERED",Number(overview.milk_litres_delivered||0).toLocaleString("en-IN")+" L","Delivered orders","orders")+
+ click("ACTIVE PLANS",overview.active_subscriptions,(overview.scheduled_deliveries||0)+" scheduled","subscriptions")+
+ click("CUSTOMERS",overview.customers,"Registered accounts","customers")+
+ click("PROVIDERS",overview.providers,(overview.approved_providers||0)+" approved","providers")+
+ click("CANCELLED",overview.cancelled_orders,"Period orders","orders")+
+ click("LATE",overview.late_orders||0,"Past promise window","orders")+
+ click("DELIVERY RATE",((overview.orders?overview.completed_orders/overview.orders*100:0).toFixed(1))+"%","Delivered / placed","orders")+
+ '</div>'+
+ '<div class="admin-focus-grid">'+
+ '<article class="focus-card '+(pendingProviders.length?"needs-attention":"")+'"><div class="focus-icon">✓</div><div><small>PROVIDER REVIEW</small><b>'+pendingProviders.length+' pending</b><span>New or re-submitted providers waiting for owner review.</span></div><button data-go="providers">Review</button></article>'+
+ '<article class="focus-card '+(late.length?"needs-attention":"")+'"><div class="focus-icon">!</div><div><small>DELIVERY HEALTH</small><b>'+late.length+' late · '+placed.length+' waiting</b><span>Late orders and freshly placed orders that may need attention.</span></div><button data-go="orders">Open queue</button></article>'+
+ '<article class="focus-card '+(lowStock.length?"needs-attention":"")+'"><div class="focus-icon">□</div><div><small>CATALOG HEALTH</small><b>'+lowStock.length+' need stock attention</b><span>Out-of-stock or hidden products detected in the live catalog.</span></div><button data-go="products">Fix catalog</button></article>'+
+ '<article class="focus-card"><div class="focus-icon">↗</div><div><small>FAST ACTIONS</small><b>Run the business</b><span>Search any record or jump into the operational area you need.</span></div><button id="focusSearch">Search</button></article>'+
+ '</div>'+
+ '<div class="admin-grid"><article class="admin-card"><div class="card-heading"><div><span class="eyebrow">OPERATIONS</span><h3>Daily sales</h3></div><span class="card-caption">'+dateText($("fromDate").value)+' → '+dateText($("toDate").value)+'</span></div>'+
+ (days.length?days.map(x=>'<div class="bar-row"><span>'+dateText(x.day)+'</span><div class="bar"><i style="width:'+Math.round(Number(x.sales)/max*100)+'%"></i></div><b>'+money(x.sales)+'</b></div>').join(""):'<div class="empty-admin">No sales in this period.</div>')+
+ '</article><article class="admin-card"><div class="card-heading"><div><span class="eyebrow">SUPPLY NETWORK</span><h3>Provider performance</h3></div></div>'+
+ (top.length?'<table class="table"><thead><tr><th>Provider</th><th>Delivered</th><th>Sales</th></tr></thead><tbody>'+top.map(x=>'<tr><td>'+esc(x.provider_name)+'</td><td>'+x.delivered_orders+'</td><td>'+money(x.sales)+'</td></tr>').join("")+'</tbody></table>':'<div class="empty-admin">No provider sales yet.</div>')+
+ '</article></div>'+
+ '<article class="admin-card accounting-card"><div><span class="eyebrow">OWNER ACCOUNTING</span><h3>GMV is not profit</h3><p>Gross sales is marketplace GMV from delivered orders. Keep commissions, delivery costs, payment fees and refunds in a separate ledger before showing profit.</p></div><span class="accounting-pill">Financially safe</span></article>'+
+ '</div>';
+}function table(title,columns,rows,empty="No records yet."){
  const head=columns.map(c=>"<th>"+c[0]+"</th>").join("");
  const body=rows.length?rows.map(row=>"<tr>"+columns.map(c=>"<td>"+(c[1]?c[1](row):esc(row[c[0]]??"—"))+"</td>").join("")+"</tr>").join(""):'<tr><td colspan="'+columns.length+'" class="empty-table">'+empty+"</td></tr>";
  $("adminContent").innerHTML='<div class="admin-section"><div class="admin-card admin-list-card"><div class="admin-list-head"><div><span class="eyebrow">LIVE BACKEND</span><h3>'+esc(title)+'</h3></div><button id="sectionRefresh">↻ Refresh</button></div><div class="table-scroll"><table class="table admin-table"><thead><tr>'+head+'</tr></thead><tbody>'+body+"</tbody></table></div></div></div>";
@@ -236,4 +257,75 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 $("refreshAdmin").onclick=()=>loadSection(section);
 $("fromDate").onchange=()=>{if(section==="overview")loadSection("overview")};
 $("toDate").onchange=()=>{if(section==="overview")loadSection("overview")};
+
+function toast(message,type="success"){
+ const el=$("adminToast");if(!el)return;
+ el.textContent=message;el.className="admin-toast "+(type==="error"?"error":"success");
+ clearTimeout(window.__adminToastTimer);
+ window.__adminToastTimer=setTimeout(()=>el.classList.add("hidden"),2600);
+}
+function navTo(next){loadSection(next).catch(err=>toast(err.message||"Unable to load section","error"))}
+function prefetchAdminData(){
+ if(window.__adminPrefetchStarted)return;
+ window.__adminPrefetchStarted=true;
+ const jobs=[
+  ["orders","admin_list_orders",{p_limit:100}],
+  ["providers","admin_list_providers",{p_limit:100}],
+  ["customers","admin_list_customers",{p_limit:100}],
+  ["subscriptions","admin_list_subscriptions",{p_limit:100}],
+  ["products","admin_list_products",{p_limit:150}]
+ ];
+ Promise.allSettled(jobs.map(async j=>{if(cache[j[0]])return;const data=await adminRpc(j[1],j[2]);cache[j[0]]=data||[];})).then(()=>{
+   if(section==="overview"&&overview)renderOverview();
+ }).catch(()=>{});
+}
+function searchItems(query){
+ const q=String(query||"").trim().toLowerCase();if(!q)return[];
+ const out=[];
+ const add=(type,id,title,meta)=>{
+   const hay=(title+" "+meta+" "+id).toLowerCase();
+   if(hay.includes(q))out.push({type,id,title,meta});
+ };
+ (cache.orders||[]).forEach(o=>add("order",o.id,"Order "+String(o.id).slice(0,8),[o.status,o.customer_name,o.provider_name,money(o.total)].filter(Boolean).join(" · ")));
+ (cache.providers||[]).forEach(p=>add("provider",p.id,p.display_name,[p.owner_name,p.area_name,p.city,p.verification_status].filter(Boolean).join(" · ")));
+ (cache.customers||[]).forEach(u=>add("customer",u.id,u.full_name||"Customer",[u.email,u.phone].filter(Boolean).join(" · ")));
+ (cache.subscriptions||[]).forEach(s=>add("subscription",s.id,s.customer_name||"Subscription",[s.product_name,s.provider_name,s.status].filter(Boolean).join(" · ")));
+ (cache.products||[]).forEach(p=>add("product",p.id,p.name,[p.provider_name,p.milk_type,p.stock?"In stock":"Out of stock"].filter(Boolean).join(" · ")));
+ return out.slice(0,9);
+}
+function renderSearchResults(query){
+ const wrap=$("adminSearchResults");if(!wrap)return;
+ const q=String(query||"").trim();
+ if(!q){wrap.classList.add("hidden");wrap.innerHTML="";return}
+ const items=searchItems(q);
+ wrap.innerHTML=items.length?items.map(x=>'<button type="button" class="search-result" data-search-type="'+esc(x.type)+'" data-search-id="'+esc(x.id)+'"><span class="search-result-kind">'+esc(x.type)+'</span><span><b>'+esc(x.title)+'</b><small>'+esc(x.meta)+'</small></span><i>→</i></button>').join(""):'<div class="search-empty">No matching records in the recent admin index.</div>';
+ wrap.classList.remove("hidden");
+}
+function openSearchResult(type,id){
+ $("adminSearch").value="";renderSearchResults("");
+ if(type==="order")return showOrderDetail(id);
+ if(type==="provider")return openProviderDetail(id);
+ if(type==="customer")return showCustomerDetail(id);
+ if(type==="subscription")return showSubscriptionDetail(id);
+ if(type==="product"){navTo("products");return}
+}
+document.addEventListener("click",function(e){
+ const go=e.target.closest("[data-go]");
+ if(go){e.preventDefault();navTo(go.dataset.go);return}
+ const result=e.target.closest("[data-search-type]");
+ if(result){openSearchResult(result.dataset.searchType,result.dataset.searchId);return}
+ if(e.target.closest("#focusSearch")){const input=$("adminSearch");if(input){input.focus();renderSearchResults(input.value)}}
+ const wrap=$("adminSearchWrap");
+ if(wrap&&!wrap.contains(e.target)){const r=$("adminSearchResults");if(r)r.classList.add("hidden")}
+});
+document.addEventListener("keydown",function(e){
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();const input=$("adminSearch");if(input){input.focus();input.select();renderSearchResults(input.value)}}
+ if(e.key==="Escape"){const r=$("adminSearchResults");if(r)r.classList.add("hidden")}
+});
+if($("adminSearch")){
+ $("adminSearch").addEventListener("input",function(){clearTimeout(window.__adminSearchTimer);window.__adminSearchTimer=setTimeout(()=>renderSearchResults(this.value),120)});
+ $("adminSearch").addEventListener("focus",function(){if(this.value)renderSearchResults(this.value)});
+}
+if($("adminMore"))$("adminMore").onclick=function(){const input=$("adminSearch");if(input){input.focus();input.select()}};
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&!$("adminApp").classList.contains("hidden")){prefetchAdminData()}});
 boot();
