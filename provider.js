@@ -29,6 +29,39 @@ const $=id=>document.getElementById(id);
 async function getCurrentLocation(){
  return await new Promise(function(resolve){if(!navigator.geolocation){resolve(null);return}navigator.geolocation.getCurrentPosition(function(pos){resolve({latitude:pos.coords.latitude,longitude:pos.coords.longitude})},function(){resolve(null)},{enableHighAccuracy:false,timeout:7000,maximumAge:600000})})
 }
+async function loadProviderBackendState(){
+ if(!window.Doodhwala?.configured)return {ok:false,reason:"not_configured"};
+ const {data:userData,error:userError}=await Doodhwala.supabase.auth.getUser();
+ if(userError||!userData?.user)return {ok:false,reason:"not_signed_in"};
+ const {data,error}=await Doodhwala.supabase.rpc("provider_get_dashboard");
+ if(error)return {ok:false,reason:error.message||"backend_unavailable"};
+ const p=data?.provider||{},a=data?.service_area||null,products=data?.products||[],metrics=data?.metrics||{};
+ provider.backendProviderId=p.id||provider.backendProviderId;
+ provider.providerName=p.display_name||"";
+ provider.ownerName=p.owner_name||"";
+ provider.phone=p.phone||"";
+ provider.type=p.primary_milk_type||"cow";
+ provider.area=p.area_name||"";
+ provider.city=p.city||"";
+ provider.pin=p.pin_code||"";
+ provider.radius=String(p.service_radius_km??5);
+ provider.from=p.delivery_from||"06:00";
+ provider.to=p.delivery_to||"09:00";
+ provider.maxOpenOrders=String(p.max_open_orders??25);
+ provider.maxDailyLitres=String(p.max_daily_litres??250);
+ provider.acceptanceTimeoutMinutes=String(p.acceptance_timeout_minutes??10);
+ provider.acceptingOrders=p.accepting_orders!==false;
+ provider.verificationStatus=data?.verification_status||"pending";
+ if(a?.latitude!=null&&a?.longitude!=null){provider.latitude=Number(a.latitude);provider.longitude=Number(a.longitude)}
+ provider.products=products.map(m=>({
+   id:m.id,name:m.name,price:Number(m.price_per_litre||0),type:m.milk_type||provider.type,
+   stock:Boolean(m.stock),days:Boolean(m.daily_available),unit:m.unit_label||"1 L",isActive:m.is_active!==false
+ }));
+ provider.metrics=metrics;
+ save();
+ renderStoreStatus();
+ return {ok:true};
+}
 async function syncProviderBackend(){
  if(!window.Doodhwala?.configured)return {ok:false,reason:"not_configured"};
  const {data:userData}=await Doodhwala.supabase.auth.getUser();const user=userData?.user;
