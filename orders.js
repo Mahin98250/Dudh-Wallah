@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
-function money(v){return "₹"+Number(v||0).toLocaleString("en-IN",{maximumFractionDigits:2)}
+function money(v){return "₹"+Number(v||0).toLocaleString("en-IN",{maximumFractionDigits:2})}
 function when(v){try{return new Intl.DateTimeFormat("en-IN",{dateStyle:"medium",timeStyle:"short"}).format(new Date(v))}catch(e){return v||""}}
 function statusLabel(v){const labels={placed:"Order placed",accepted:"Accepted",preparing:"Packing your milk",ready:"Ready for delivery",out_for_delivery:"Out for delivery",delivered:"Delivered",rejected:"Declined",cancelled:"Cancelled"};return labels[v]||String(v||"placed").replace(/_/g," ")}
 function countdownText(target){const ms=new Date(target).getTime()-Date.now();if(!Number.isFinite(ms))return "";const min=Math.max(0,Math.floor(ms/60000)),sec=Math.max(0,Math.floor((ms%60000)/1000));return min+"m "+String(sec).padStart(2,"0")+"s"}
