@@ -122,7 +122,7 @@
     const providerId=provider?.backendProviderId;
     if(!providerId)return [];
     const {data,error}=await api.from("orders")
-      .select("id,status,total,created_at,late_after_at,promised_delivery_at,delivery_recipient_name,delivery_area_name,order_items(quantity)")
+      .select("id,status,total,created_at,acceptance_deadline_at,late_after_at,promised_delivery_at,delivery_recipient_name,delivery_area_name,order_items(quantity)")
       .eq("provider_id",providerId)
       .order("created_at",{ascending:false})
       .limit(100);
@@ -220,7 +220,7 @@
 
   function renderLiveDeliveries(orders){
     const active=orders.filter(o=>o.status==="out_for_delivery").slice(0,6);
-    return `<article class="shop-card"><div class="shop-section-head"><div><span class="eyebrow">LIVE DELIVERY</span><h4>Drivers currently on the road</h4><p>Optional location sharing is available per order.</p></div><button class="shop-link" data-shop-go="route">Dispatch</button></div><div class="shop-live-delivery">${active.length?active.map(o=>`<div class="shop-delivery"><div><b>${esc(o.delivery_recipient_name||"Customer")}</b><span>${esc(o.delivery_area_name||"Delivery")}</span></div><button type="button" data-p10-live="${esc(o.id)">${state.watchers.has(o.id)?"Stop sharing":"Share position"}</button></div>`).join(""):'<div class="shop-empty">No orders are currently marked out for delivery.</div>'}</div></article>`;
+    return `<article class="shop-card"><div class="shop-section-head"><div><span class="eyebrow">LIVE DELIVERY</span><h4>Drivers currently on the road</h4><p>Optional location sharing is available per order.</p></div><button class="shop-link" data-shop-go="route">Dispatch</button></div><div class="shop-live-delivery">${active.length?active.map(o=>`<div class="shop-delivery"><div><b>${esc(o.delivery_recipient_name||"Customer")}</b><span>${esc(o.delivery_area_name||"Delivery")}</span></div><button type="button" data-p10-live="${esc(o.id)}">${state.watchers.has(o.id)?"Stop sharing":"Share position"}</button></div>`).join(""):'<div class="shop-empty">No orders are currently marked out for delivery.</div>'}</div></article>`;
   }
 
   function render(perf,orders){
@@ -294,7 +294,7 @@
     if(!user||state.channel)return;
     const channel=api.channel("provider-shopkeeper-cockpit-"+user.id)
       .on("postgres_changes",{event:"*",schema:"public",table:"orders",filter:"provider_owner_id=eq."+user.id},()=>{clearTimeout(state.realtimeTimer);state.realtimeTimer=setTimeout(()=>refresh().catch(()=>{}),250)})
-      .on("postgres_changes",{event:"*",schema:"public",table:"milk_products",filter:"provider_id=eq."+String(provider?.backendProviderId||"")},()=>{setTimeout(()=>refresh().catch(()=>{}),200)});
+      .on("postgres_changes",{event:"*",schema:"public",table:"milk_products"},()=>{setTimeout(()=>refresh().catch(()=>{}),200)});
     state.channel=channel;
     channel.subscribe(status=>{
       if(status==="SUBSCRIBED")return;
