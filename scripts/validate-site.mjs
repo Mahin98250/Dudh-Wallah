@@ -54,6 +54,33 @@ for(const file of ["/app.js","/auth.js","/checkout.js","/provider.js","/orders.j
   if(!localFiles.has(file)) errors.push("required runtime file missing "+file);
 }
 
+
+const providerJsPath=path.join(root,"provider.js");
+if(fs.existsSync(providerJsPath)){
+  const providerJs=fs.readFileSync(providerJsPath,"utf8");
+  for(const contract of [
+    "provider_get_dashboard",
+    "provider_set_store_status",
+    "provider_upsert_product",
+    "provider_delete_product",
+    "provider_get_subscriptions",
+    "setupProviderOrderRealtime",
+    "setupProviderSubscriptionRealtime",
+    "acceptance_window_expired"
+  ]) if(!providerJs.includes(contract)) errors.push("provider.js -> missing Phase 2 contract "+contract);
+}
+const providerHtmlPath=path.join(root,"provider.html");
+if(fs.existsSync(providerHtmlPath)){
+  const providerHtml=fs.readFileSync(providerHtmlPath,"utf8");
+  if(!providerHtml.includes('data-view="subscriptions"')) errors.push("provider.html -> subscriptions navigation missing");
+  if(!providerHtml.includes('id="view-subscriptions"')) errors.push("provider.html -> subscriptions view missing");
+  if(!providerHtml.includes("provider.js?v=")) errors.push("provider.html -> provider bundle cache bust missing");
+}
+if(localFiles.has("/sw.js")){
+  const swText=fs.readFileSync(path.join(root,"sw.js"),"utf8");
+  if(!swText.includes("/Dudh-Wallah/provider.js?v=")) errors.push("sw.js -> versioned provider bundle missing from cache assets");
+}
+
 if(errors.length){
   console.error("Doodhwala site contract validation failed:");
   for(const e of errors) console.error(" - "+e);
