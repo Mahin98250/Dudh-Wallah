@@ -151,7 +151,7 @@ function setupAdminRealtime(){
   })
   .on("postgres_changes",{event:"*",schema:"public",table:"provider_profiles"},refresh)
   .on("postgres_changes",{event:"*",schema:"public",table:"provider_verifications"},refresh)
-  .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions"},refresh);
+  .on("postgres_changes",{event:"*",schema:"public",table:"milk_subscriptions"},refresh)\n  .on("postgres_changes",{event:"*",schema:"public",table:"milk_products"},refresh)\n  .on("postgres_changes",{event:"*",schema:"public",table:"provider_service_areas"},refresh);
  window.__doodhwalaAdminChannel=channel;
  channel.subscribe(function(status){
   if(status==="SUBSCRIBED"){window.__adminRealtimeReconnectAttempt=0;const s=$("adminLiveStatus");if(s){s.textContent="● Live";s.classList.remove("updating")}return}
@@ -180,6 +180,8 @@ async function loadSection(next){
   if(section==="providers"){await loadProvidersSection();return}
   if(section==="customers"){cache.customers=await adminRpc("admin_list_customers",{p_limit:150});table("Customers",[["Customer",r=>esc(r.full_name||"—")],["Email",r=>esc(r.email||"—")],["Phone",r=>esc(r.phone||"—")],["Orders",r=>r.order_count],["Active plans",r=>r.active_plan_count],["Joined",r=>dateText(r.created_at)]],cache.customers);return}
   if(section==="subscriptions"){cache.subscriptions=await adminRpc("admin_list_subscriptions",{p_limit:150});table("Subscriptions",[["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Milk",r=>esc(r.product_name||"—")],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Qty",r=>Number(r.quantity_litres||0)+" L"],["Period",r=>dateText(r.start_date)+" → "+dateText(r.end_date)],["Deliveries",r=>r.delivery_count]],cache.subscriptions);return}
+  if(section==="products"){await loadProductsSection();return}
+  if(section==="audit"){await loadAuditSection();return}
   if(section==="settings"){$("adminContent").innerHTML='<div class="admin-section"><div class="admin-card"><span class="eyebrow">OWNER SETTINGS</span><h3>Secure control configuration</h3><div class="admin-note">Admin access is controlled by the private <code>admin_allowlist</code>. The admin URL itself is not a security boundary. Add or remove owner emails only through your secure Supabase owner workflow. Never put a service-role key in the frontend.</div><div class="settings-grid"><div><b>Live database</b><span>Supabase · ap-south-1</span></div><div><b>Order model</b><span>Realtime lifecycle + provider capacity</span></div><div><b>Subscriptions</b><span>Scheduled deliveries materialized automatically</span></div><div><b>Marketplace</b><span>Location + provider service-radius discovery</span></div></div></div></div>';return}
  }catch(error){$("adminContent").innerHTML='<div class="admin-section"><div class="admin-card"><div class="admin-note error-note">'+esc(error.message||"Unable to load this section.")+'</div></div></div>'}
 }
