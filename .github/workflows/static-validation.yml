@@ -14,7 +14,7 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           set -e
-          for file in app.js auth.js checkout.js provider.js supabase-client.js supabase-config.js sw.js orders.js plans.js admin.js store.js product.js customer-nav.js location.js provider-location.js; do
+          for file in app.js auth.js checkout.js checkout-10x.js provider.js provider-10x.js supabase-client.js supabase-config.js sw.js orders.js plans.js admin.js admin-intelligence.js store.js product.js customer-nav.js customer-10x.js customer-market-10x.js location.js provider-location.js resilience.js; do
             node --check "$file"
           done
       - name: Validate site asset contracts
