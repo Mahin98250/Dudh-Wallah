@@ -17,6 +17,8 @@ jobs:
           for file in app.js auth.js checkout.js checkout-10x.js provider.js provider-10x.js supabase-client.js supabase-config.js sw.js orders.js plans.js admin.js admin-intelligence.js store.js product.js customer-nav.js customer-10x.js customer-market-10x.js location.js provider-location.js resilience.js; do
             node --check "$file"
           done
+      - name: Test resilience recovery behavior
+        run: node scripts/test-resilience.mjs
       - name: Validate site asset contracts
         run: node scripts/validate-site.mjs
       - name: Reject accidental domain-root paths
