@@ -80,16 +80,32 @@
     if(orderError||!order)throw orderError||new Error("Order not found");
     const {data:items,error:itemError}=await api.from("order_items").select("product_id,quantity,product_name_snapshot,unit_price").eq("order_id",orderId);
     if(itemError)throw itemError;
+    const productIds=[...new Set((items||[]).map(i=>i.product_id).filter(Boolean))];
+    if(!productIds.length)throw new Error("This order has no items available to reorder.");
+    const {data:products,error:productError}=await api.from("milk_products")
+      .select("id,provider_id,name,price_per_litre,unit_label,stock,daily_available,is_active")
+      .in("id",productIds);
+    if(productError)throw productError;
+    const available=new Map((products||[])
+      .filter(p=>p.is_active&&p.stock&&p.daily_available&&p.provider_id===order.provider_id)
+      .map(p=>[p.id,p]));
     const cartKey="doodhwala-cart";let cart={};try{cart=JSON.parse(localStorage.getItem(cartKey)||"{}")}catch(_){}
-    let added=0;
+    let added=0,skipped=0;
     for(const i of (items||[])){
-      if(!i.product_id||Number(i.quantity)<=0)continue;
-      const key=order.provider_id+":"+i.product_id;
-      if(!cart[key])cart[key]={key,provider:"Your saved provider",milk:i.product_name_snapshot||"Milk",unitPrice:Number(i.unit_price||0),price:root.money(i.unit_price)+"/ L",qty:0,providerId:order.provider_id,productId:i.product_id,emoji:"🥛"};
-      cart[key].qty+=Number(i.quantity);added+=Number(i.quantity);
+      const product=available.get(i.product_id),quantity=Number(i.quantity);
+      if(!product||!Number.isFinite(quantity)||quantity<=0){skipped++;continue}
+      const key=product.provider_id+":"+product.id;
+      const price=Number(product.price_per_litre??i.unit_price??0);
+      if(!cart[key])cart[key]={key,provider:"Your saved provider",milk:product.name||i.product_name_snapshot||"Milk",unitPrice:price,price:root.money(price)+"/ L",qty:0,providerId:product.provider_id,productId:product.id,emoji:"🥛"};
+      cart[key].milk=product.name||cart[key].milk;
+      cart[key].unitPrice=price;cart[key].price=root.money(price)+"/ L";
+      cart[key].qty=Number(cart[key].qty||0)+quantity;
+      added+=quantity;
     }
-    if(!added)throw new Error("These products are no longer available for reorder.");
-    localStorage.setItem(cartKey,JSON.stringify(cart));window.dispatchEvent(new Event("doodhwala:cart-updated"));return added;
+    if(!added)throw new Error(skipped?"The items from this order are currently unavailable.":"These products are no longer available for reorder.");
+    localStorage.setItem(cartKey,JSON.stringify(cart));
+    window.dispatchEvent(new Event("doodhwala:cart-updated"));
+    return {added,skipped};
   }
   root.reorder=reorderOrder;
 
@@ -179,7 +195,7 @@
       const match=String(meta.textContent||"").match(/Order\s+([0-9a-f-]{16,})/i);if(!match)return;
       const id=match[1],area=card.querySelector(".order-actions")||card,holder=document.createElement("div");holder.className="d10-order-tools";holder.innerHTML='<button class="d10-order-btn" data-10x-order="'+id+'" data-10x-track="'+id+'">⌖ Track live</button><button class="d10-order-btn" data-10x-order="'+id+'" data-10x-reorder="'+id+'">↻ Reorder</button>';area.appendChild(holder);
       holder.querySelector("[data-10x-track]").onclick=async function(){openPanel("tracking");setTimeout(()=>document.querySelector('[data-track="'+id+'"]')?.click(),50)};
-      holder.querySelector("[data-10x-reorder]").onclick=async function(){this.disabled=true;this.textContent="Adding…";try{const n=await root.reorder(id);toast(n+" L added to cart");setTimeout(()=>{if(typeof window.openCart==="function")window.openCart()},220)}catch(e){toast(e.message||"Reorder unavailable")}finally{this.disabled=false;this.textContent="↻ Reorder"}};
+      holder.querySelector("[data-10x-reorder]").onclick=async function(){this.disabled=true;this.textContent="Adding…";try{const result=await root.reorder(id);toast(result.added+" L added to cart"+(result.skipped?" · "+result.skipped+" unavailable item(s) skipped":""));setTimeout(()=>{if(typeof window.openCart==="function")window.openCart()},220)}catch(e){toast(e.message||"Reorder unavailable")}finally{this.disabled=false;this.textContent="↻ Reorder"}};
     });
   }
 
