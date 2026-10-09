@@ -124,7 +124,7 @@ if(fs.existsSync(path.join(root,"admin.html"))){
 }
 for(const file of htmlFiles){
   const htmlText=fs.readFileSync(path.join(root,file.slice(1)),"utf8");
-  if(!htmlText.includes('/Dudh-Wallah/resilience.js?v=20261009.1')) errors.push(file+" -> resilience bootstrap missing");
+  if(!htmlText.includes('/Dudh-Wallah/resilience.js?v=20261009.2')) errors.push(file+" -> resilience bootstrap missing");
 }
 if(localFiles.has("/sw.js")){
   const swCheck=fs.readFileSync(path.join(root,"sw.js"),"utf8");
