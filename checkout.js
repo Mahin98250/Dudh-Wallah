@@ -1,7 +1,7 @@
 const CART_KEY="doodhwala-cart";
 const CHECKOUT_KEYS_KEY="doodhwala-checkout-idempotency-v1";
-let cart=JSON.parse(localStorage.getItem(CART_KEY)||"{}");
-let checkoutKeys=JSON.parse(localStorage.getItem(CHECKOUT_KEYS_KEY)||"{}");
+let cart=window.DoodhwalaResilience?.readObjectStorage(CART_KEY,{})||{};
+let checkoutKeys=window.DoodhwalaResilience?.readObjectStorage(CHECKOUT_KEYS_KEY,{})||{};
 const $=id=>document.getElementById(id);
 let sessionUser=null;
 let appliedPromo=null;
@@ -47,9 +47,9 @@ async function applyPromo(){
  finally{button.disabled=false;button.textContent="Apply"}
 }
 function friendlyPromoError(message){const m=String(message||"");if(/customer_limit_reached/.test(m))return"This offer has already been used on your account.";if(/usage_limit_reached/.test(m))return"This offer has reached its usage limit.";if(/min_order_value/.test(m))return"This order does not meet the minimum value for this offer.";if(/invalid_or_expired|promo not applicable/.test(m))return"This promo code is invalid or expired.";return m.replace(/^.*?:/,"").replace(/_/g," ")||"Promo code could not be applied."}
-function saveCheckoutKeys(){localStorage.setItem(CHECKOUT_KEYS_KEY,JSON.stringify(checkoutKeys))}
+function saveCheckoutKeys(){if(window.DoodhwalaResilience)window.DoodhwalaResilience.writeStorage(CHECKOUT_KEYS_KEY,checkoutKeys);else try{localStorage.setItem(CHECKOUT_KEYS_KEY,JSON.stringify(checkoutKeys))}catch(_){}}
 function idempotencyKeyForProvider(providerId){if(!checkoutKeys[providerId])checkoutKeys[providerId]={key:(crypto.randomUUID?.()||String(Date.now())+"-"+Math.random())};saveCheckoutKeys();return checkoutKeys[providerId].key}
-function removeProviderFromCart(providerId){Object.keys(cart).forEach(function(k){if(cart[k]&&cart[k].providerId===providerId)delete cart[k]});localStorage.setItem(CART_KEY,JSON.stringify(cart));delete checkoutKeys[providerId];saveCheckoutKeys()}
+function removeProviderFromCart(providerId){Object.keys(cart).forEach(function(k){if(cart[k]&&cart[k].providerId===providerId)delete cart[k]});if(window.DoodhwalaResilience)window.DoodhwalaResilience.writeStorage(CART_KEY,cart);else try{localStorage.setItem(CART_KEY,JSON.stringify(cart))}catch(_){}delete checkoutKeys[providerId];saveCheckoutKeys()}
 $("applyPromo")?.addEventListener("click",applyPromo);
 $("promoCode")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();applyPromo()}});
 
@@ -78,7 +78,7 @@ $("placeOrder").onclick=async()=>{
    showError(orderIds.length?"Some orders are already safely placed. Retry the remaining ones — duplicate orders are prevented.":friendlyOrderError(first));
    return;
  }
- localStorage.removeItem(CART_KEY);checkoutKeys={};saveCheckoutKeys();
+ if(window.DoodhwalaResilience)window.DoodhwalaResilience.removeItem(CART_KEY);else try{localStorage.removeItem(CART_KEY)}catch(_){}checkoutKeys={};saveCheckoutKeys();
  $("checkoutForm").classList.add("hidden");$("success").classList.remove("hidden");
  $("successText").textContent=orderIds.length===1?"Order "+orderIds[0]+" has been created.":"We created "+orderIds.length+" provider orders from your cart.";
  $("successOrders").innerHTML=orderIds.map(id=>'<div class="success-order"><b>Order '+escapeHtml(id)+'</b><br><span>Placed • awaiting provider acceptance</span></div>').join("");
