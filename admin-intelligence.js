@@ -129,8 +129,8 @@
         <div class="ai-head"><div><span class="eyebrow">ADMIN INTELLIGENCE</span><h3>Signals, risks & recommendations.</h3><p>Derived from the secure admin index. Use these signals to decide where to act first.</p></div><button class="ai-refresh" id="aiRefresh">↻ Refresh intelligence</button></div>
         <div class="ai-kpis">
           <div class="ai-kpi"><small>OPEN PRESSURE</small><b>${m.open.length}</b><span>${m.placed.length} awaiting acceptance · ${m.late.length} late</span></div>
-          <div class="ai-kpi"><small>7-DAY GMV</small><b>${money(dailySales.reduce((s,x)=>s+Number(x.sales||0),0))}</b><span>Delivered order value in overview range</span></div>
-          <div class="ai-kpi"><small>NEW CUSTOMERS</small><b>${m.in30}</b><span>Accounts joined in the last 30 days${m.growth===null?"":" · "+(m.growth>=0?"+":"")+m.growth.toFixed(0)+"% vs prior 30 days"}</span></div>
+          <div class="ai-kpi"><small>RECENT GMV</small><b>${money(dailySales.reduce((s,x)=>s+Number(x.sales||0),0))}</b><span>Latest seven dates in the selected overview range</span></div>
+          <div class="ai-kpi"><small>NEW CUSTOMERS</small><b>${m.in30}</b><span>Accounts joined in the last 30 days in the loaded admin index${m.growth===null?"":" · "+(m.growth>=0?"+":"")+m.growth.toFixed(0)+"% vs prior 30 days"}</span></div>
           <div class="ai-kpi"><small>SUPPLY FLAGS</small><b>${m.unapproved.length+m.stockProblems.length}</b><span>${m.unapproved.length} provider · ${m.stockProblems.length} catalogue</span></div>
         </div>
         <div class="ai-grid">
@@ -138,7 +138,7 @@
           <article class="ai-card"><span class="eyebrow">CUSTOMER MOMENTUM</span><h4>New accounts this week</h4><p class="ai-sub">The bars show account creation by day. This is growth, not active ordering.</p><div class="ai-bars">${trendBars.map(x=>`<div class="ai-bar-row"><span>${esc(x.label)}</span><div class="ai-bar"><i style="width:${Math.max(4,x.newCustomers/maxNew*100)}%"></i></div><b>${x.newCustomers}</b></div>`).join("")}</div><div class="ai-customer-grid" style="margin-top:10px"><div class="ai-mini"><small>TOTAL CUSTOMERS</small><b>${activeCustomerBase}</b><span>Accounts in admin index</span></div><div class="ai-mini"><small>TODAY</small><b>${m.newCustomers}</b><span>New accounts today</span></div></div></article>
         </div>
         <div class="ai-grid">
-          <article class="ai-card"><span class="eyebrow">PROVIDER HEALTH</span><h4>Network operating signals</h4><p class="ai-sub">Signals appear only after enough order volume exists; no arbitrary ranking score is shown.</p>
+          <article class="ai-card"><span class="eyebrow">PROVIDER HEALTH</span><h4>Network operating signals</h4><p class="ai-sub">Signals use the latest loaded order index, not lifetime provider history; no arbitrary ranking score is shown.</p>
             <div class="ai-provider ai-provider-head"><span>Provider</span><span>Orders</span><span>Done</span><span>Open</span><span>Late</span><span>Signal</span></div>
             ${topProviders.length?topProviders.map(p=>{const sig=healthSignal(p);return `<div class="ai-provider"><b>${esc(p.name)}</b><span>${p.total}</span><span>${p.delivered}</span><span>${p.open}</span><span>${p.late}</span><span class="ai-signal ${sig[1]}">${esc(sig[0])}</span></div>`}).join(""):'<div class="ai-sub">No provider order history is available yet.</div>'}
           </article>
