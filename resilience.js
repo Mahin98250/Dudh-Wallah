@@ -61,21 +61,27 @@
     const key = String(w.DOODHWALA_SUPABASE_PUBLISHABLE_KEY || "");
     if (!url || !key) return;
     const item = pending.shift();
+    const attempt = Number(item.__reportAttempt || 0);
+    const payload = Object.assign({}, item);
+    delete payload.__reportAttempt;
     sending = true;
     nativeFetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "apikey": key },
-      body: JSON.stringify(item),
+      body: JSON.stringify(payload),
       keepalive: true
     }).then(function (response) {
       if (!response.ok && response.status !== 429) {
         try { if (w.console) w.console.warn("Doodhwala diagnostics endpoint returned", response.status); } catch (_) {}
       }
     }).catch(function () {
-      if (pending.length < 12) pending.unshift(item);
+      if (attempt < 2 && pending.length < 12) {
+        item.__reportAttempt = attempt + 1;
+        pending.unshift(item);
+      }
     }).finally(function () {
       sending = false;
-      if (pending.length) w.setTimeout(flush, 1200);
+      if (pending.length) w.setTimeout(flush, attempt ? 2500 : 1000);
     });
   }
 
@@ -211,8 +217,27 @@
     catch (_) { return nativeFetch(input, init); }
     if (url.pathname.endsWith("/functions/v1/client-error-report")) return nativeFetch(input, init);
     const relevant = url.origin === w.location.origin || /\.supabase\.co$/i.test(url.hostname);
+    const method = String((init && init.method) || (typeof input !== "string" && input && input.method) || "GET").toUpperCase();
+    const safeRead = relevant && (method === "GET" || method === "HEAD");
     const started = Date.now();
-    return nativeFetch(input, init).then(function (response) {
+    async function request(attempt) {
+      let response;
+      try {
+        response = await nativeFetch(input, init);
+      } catch (error) {
+        if (safeRead && attempt < 2 && error && error.name !== "AbortError" && !(w.navigator && w.navigator.onLine === false)) {
+          await new Promise(function (resolve) { w.setTimeout(resolve, 250 * Math.pow(2, attempt)); });
+          return await request(attempt + 1);
+        }
+        throw error;
+      }
+      if (safeRead && attempt < 2 && [408, 500, 502, 503, 504].includes(response.status)) {
+        await new Promise(function (resolve) { w.setTimeout(resolve, 250 * Math.pow(2, attempt)); });
+        return await request(attempt + 1);
+      }
+      return response;
+    }
+    return request(0).then(function (response) {
       if (relevant && (response.status >= 500 || response.status === 408 || response.status === 429)) {
         report("http_server_error", response.status >= 500 ? "critical" : "warning", "A server request returned HTTP " + response.status + ".", { resource: url.origin + url.pathname, status_code: response.status });
       }
