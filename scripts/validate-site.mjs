@@ -81,6 +81,27 @@ if(localFiles.has("/sw.js")){
   if(!swText.includes("/Dudh-Wallah/provider.js?v=")) errors.push("sw.js -> versioned provider bundle missing from cache assets");
 }
 
+const provider10xPath=path.join(root,"provider-10x.js");
+if(fs.existsSync(provider10xPath)){
+  const provider10x=fs.readFileSync(provider10xPath,"utf8");
+  for(const contract of [
+    "milkCommittedToday",
+    "milkDeliveredToday",
+    "if(error)throw error;",
+    'data-shop-action="${esc(a.action)}"'
+  ]) if(!provider10x.includes(contract)) errors.push("provider-10x.js -> missing reliability contract "+contract);
+}
+const customer10xPath=path.join(root,"customer-10x.js");
+if(fs.existsSync(customer10xPath)){
+  const customer10x=fs.readFileSync(customer10xPath,"utf8");
+  for(const contract of ["milk_products","daily_available","unavailable item(s) skipped"]) if(!customer10x.includes(contract)) errors.push("customer-10x.js -> missing reorder safety contract "+contract);
+}
+const adminIntelPath=path.join(root,"admin-intelligence.js");
+if(fs.existsSync(adminIntelPath)){
+  const adminIntel=fs.readFileSync(adminIntelPath,"utf8");
+  if(!adminIntel.includes("Latest seven dates in the selected overview range")) errors.push("admin-intelligence.js -> GMV range label must match selected range");
+  if(!adminIntel.includes("loaded admin index")) errors.push("admin-intelligence.js -> bounded customer index must be disclosed");
+}
 if(errors.length){
   console.error("Doodhwala site contract validation failed:");
   for(const e of errors) console.error(" - "+e);
