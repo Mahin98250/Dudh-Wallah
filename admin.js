@@ -294,10 +294,31 @@ async function loadOrdersSection(){
  });
  draw();
 }
+async function loadSystemHealthSection(){
+ const rows=await adminRpc("admin_list_client_error_reports",{p_limit:50});
+ table("System health",[
+  ["Severity",r=>'<span class="admin-status '+esc(r.severity)+'">'+esc(r.severity)+'</span>'],
+  ["Detected",r=>dateTime(r.created_at)],
+  ["Failure",r=>esc(r.event_type)],
+  ["Page",r=>esc(r.route)],
+  ["HTTP",r=>r.status_code||"—"],
+  ["Resource",r=>esc(r.resource||"—")],
+  ["Details",r=>esc(r.message)],
+  ["Fingerprint",r=>'<code>'+esc(r.fingerprint)+'</code>']
+ ],rows,"No client-side errors have been reported.");
+ const card=$("adminContent").querySelector(".admin-list-card");
+ if(card){
+  const note=document.createElement("p");
+  note.className="admin-note";
+  note.textContent="Reports are sanitized before storage and contain no account IDs, emails, phone numbers, tokens, query strings, or stack traces. Reports are retained for 30 days. Real-time external alerts require the DOODHWALA_ALERT_WEBHOOK_URL secret in Supabase Edge Function secrets.";
+  const head=card.querySelector(".admin-list-head");
+  if(head)head.insertAdjacentElement("afterend",note);
+ }
+}
 async function loadSection(next){
  section=next;
  document.querySelectorAll("[data-section]").forEach(x=>x.classList.toggle("active",x.dataset.section===section));
- $("adminTitle").textContent=section==="overview"?"Business overview":section[0].toUpperCase()+section.slice(1);
+ $("adminTitle").textContent=section==="overview"?"Business overview":section==="health"?"System health":section[0].toUpperCase()+section.slice(1);
  try{
   if(section==="overview"){await loadOverview();return}
   if(section==="orders"){await loadOrdersSection();return;}
@@ -306,6 +327,7 @@ async function loadSection(next){
   if(section==="subscriptions"){cache.subscriptions=await adminRpc("admin_list_subscriptions",{p_limit:150});table("Subscriptions",[["Customer",r=>esc(r.customer_name||"—")],["Provider",r=>esc(r.provider_name||"—")],["Milk",r=>esc(r.product_name||"—")],["Status",r=>'<span class="admin-status '+esc(r.status)+'">'+esc(r.status)+'</span>'],["Qty",r=>Number(r.quantity_litres||0)+" L"],["Period",r=>dateText(r.start_date)+" → "+dateText(r.end_date)],["Deliveries",r=>r.delivery_count],["Action",r=>'<button data-subscription="'+esc(r.id)+'">View</button>']],cache.subscriptions);$("adminContent").querySelectorAll("[data-subscription]").forEach(b=>b.onclick=()=>showSubscriptionDetail(b.dataset.subscription));return}
   if(section==="products"){await loadProductsSection();return}
   if(section==="audit"){await loadAuditSection();return}
+   if(section==="health"){await loadSystemHealthSection();return}
   if(section==="settings"){$("adminContent").innerHTML='<div class="admin-section"><div class="admin-card"><span class="eyebrow">OWNER SETTINGS</span><h3>Secure control configuration</h3><div class="admin-note">Admin access is controlled by the private <code>admin_allowlist</code>. The admin URL itself is not a security boundary. Add or remove owner emails only through your secure Supabase owner workflow. Never put a service-role key in the frontend.</div><div class="settings-grid"><div><b>Live database</b><span>Supabase · ap-south-1</span></div><div><b>Order model</b><span>Realtime lifecycle + provider capacity</span></div><div><b>Subscriptions</b><span>Scheduled deliveries materialized automatically</span></div><div><b>Marketplace</b><span>Location + provider service-radius discovery</span></div></div></div></div>';return}
  }catch(error){$("adminContent").innerHTML='<div class="admin-section"><div class="admin-card"><div class="admin-note error-note">'+esc(error.message||"Unable to load this section.")+'</div></div></div>'}
 }
@@ -383,6 +405,17 @@ if($("adminSearch")){
  $("adminSearch").addEventListener("input",function(){clearTimeout(window.__adminSearchTimer);window.__adminSearchTimer=setTimeout(()=>renderSearchResults(this.value),120)});
  $("adminSearch").addEventListener("focus",function(){if(this.value)renderSearchResults(this.value)});
 }
-if($("adminMore"))$("adminMore").onclick=function(){const input=$("adminSearch");if(input){input.focus();input.select()}};
+if($("adminMore"))$("adminMore").onclick=function(){
+ const existing=$("adminMoreMenu");if(existing){existing.remove();return}
+ const menu=document.createElement("div");menu.id="adminMoreMenu";
+ menu.style.cssText="position:fixed;z-index:10001;right:12px;bottom:calc(88px + env(safe-area-inset-bottom));width:min(250px,calc(100vw - 24px));padding:10px;border:1px solid #d7dfd8;border-radius:16px;background:#fff;box-shadow:0 14px 36px rgba(13,37,23,.22);display:grid;gap:5px";
+ [["Search records","search"],["Subscriptions","subscriptions"],["Products","products"],["Audit log","audit"],["System health","health"],["Owner settings","settings"]].forEach(item=>{
+ const button=document.createElement("button");button.type="button";button.textContent=item[0];
+ button.style.cssText="padding:12px;border:0;border-radius:10px;background:#f5f8f5;color:#17251c;text-align:left;font:700 13px system-ui;cursor:pointer";
+ button.onclick=()=>{menu.remove();if(item[1]==="search"){const input=$("adminSearch");if(input){input.focus();input.select()}}else navTo(item[1])};
+ menu.appendChild(button);
+ });
+ document.body.appendChild(menu);
+};
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&!$("adminApp").classList.contains("hidden")){prefetchAdminData()}});
 boot();
