@@ -2,7 +2,7 @@ const PRODUCTION_ORIGIN="https://mahin98250.github.io/Dudh-Wallah";
 let mode="signin";
 const form=document.getElementById("authForm"),fullName=document.getElementById("fullName"),email=document.getElementById("email"),password=document.getElementById("password"),submit=document.getElementById("submitAuth"),message=document.getElementById("authMessage"),googleAuth=document.getElementById("googleAuth"),forgotAuth=document.getElementById("forgotAuth"),phoneToggle=document.getElementById("phoneToggle"),phoneForm=document.getElementById("phoneForm"),phoneNumber=document.getElementById("phoneNumber"),sendOtp=document.getElementById("sendOtp"),verifyOtp=document.getElementById("verifyOtp"),otpCode=document.getElementById("otpCode");
 function showMessage(text,error=false){message.textContent=text;message.className="auth-message show"+(error?" error":"")}
-function getReturnPath(){const value=new URLSearchParams(location.search).get("return")||"/Dudh-Wallah/";return value.startsWith("/Dudh-Wallah/")?value:"/Dudh-Wallah/"}
+function getReturnPath(){const value=new URLSearchParams(location.search).get("return")||"/Dudh-Wallah/";try{const target=new URL(value,PRODUCTION_ORIGIN+"/auth.html");if(target.origin!==PRODUCTION_ORIGIN||!target.pathname.startsWith("/Dudh-Wallah/")||target.pathname==="/Dudh-Wallah/auth.html")return "/Dudh-Wallah/";return target.pathname+target.search+target.hash}catch(_){return "/Dudh-Wallah/"}}
 function productionUrl(path){return PRODUCTION_ORIGIN+path}
 function isLocalOrigin(){return /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(location.hostname)||location.hostname.endsWith(".local")}
 function productionGoogleUrl(){return productionUrl("/auth.html?oauth=google&return="+encodeURIComponent(getReturnPath()))}
