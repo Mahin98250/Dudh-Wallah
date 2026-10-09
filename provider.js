@@ -22,7 +22,7 @@ function normalizeProductIds(){
 }
 
 const defaultProvider={providerName:"",ownerName:"",phone:"",type:"cow",area:"",city:"Ahmedabad",pin:"",radius:"5",from:"06:00",to:"09:00",maxOpenOrders:"25",maxDailyLitres:"250",acceptanceTimeoutMinutes:"10",acceptingOrders:true,products:[]};
-let provider=Object.assign({},defaultProvider,JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"));
+let provider=Object.assign({},defaultProvider,window.DoodhwalaResilience?.readObjectStorage(STORAGE_KEY,{})||{});
 let currentStep=1;
 normalizeProductIds();
 const $=id=>document.getElementById(id);
@@ -84,7 +84,7 @@ async function syncDeleteProduct(id){
 }
 
 const onboarding=$("onboarding"),dashboard=$("dashboard"),toastEl=$("toast");
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(provider))}
+function save(){if(window.DoodhwalaResilience)window.DoodhwalaResilience.writeStorage(STORAGE_KEY,provider);else try{localStorage.setItem(STORAGE_KEY,JSON.stringify(provider))}catch(_){}}
 function toast(message){toastEl.textContent=message;toastEl.classList.add("show");clearTimeout(window.__providerToast);window.__providerToast=setTimeout(()=>toastEl.classList.remove("show"),1800)}async function refreshStoreStatus(){
  if(!window.Doodhwala?.configured)return;
  try{
