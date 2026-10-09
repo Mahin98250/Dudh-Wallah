@@ -145,8 +145,10 @@
       total:orders.filter(o=>dayKey(o.created_at)===key).reduce((sum,o)=>sum+num(o.total),0)
     }));
     const maxTrend=Math.max(1,...trend.map(x=>x.total));
-    const milkToday=deliveredToday.reduce((sum,o)=>(o.order_items||[]).reduce((s,i)=>s+num(i.quantity),sum),0);
-    return {todayOrders,deliveredToday,active,placed,late,overduePromise,trend,maxTrend,milkToday};
+    const quantityFor=rows=>rows.reduce((sum,o)=>(o.order_items||[]).reduce((s,i)=>s+num(i.quantity),sum),0);
+    const milkDeliveredToday=quantityFor(deliveredToday);
+    const milkCommittedToday=quantityFor(todayOrders.filter(o=>!["cancelled","rejected"].includes(o.status)));
+    return {todayOrders,deliveredToday,active,placed,late,overduePromise,trend,maxTrend,milkDeliveredToday,milkCommittedToday};
   }
 
   function readinessAlerts(perf,metrics,ps){
@@ -169,7 +171,7 @@
 
   function renderAttention(perf,metrics,ps){
     const alerts=readinessAlerts(perf,metrics,ps);
-    return `<article class="shop-card"><div class="shop-section-head"><div><span class="eyebrow">NEXT ACTIONS</span><h4>Nothing important hidden.</h4><p>Tap an action to jump straight to the right screen.</p></div><button class="shop-link" data-shop-refresh>Refresh</button></div><div class="shop-attention-list">${alerts.map(a=>`<div class="shop-attention ${a.tone}"><span class="shop-attention-icon">${a.icon}</span><div><b>${esc(a.title)}</b><span>${esc(a.detail)}</span></div><button ${a.action?`data-shop-action="${esc(a.action)}`:`data-shop-go="${a.view}"`}>${esc(a.cta)}</button></div>`).join("")}</div></article>`;
+    return `<article class="shop-card"><div class="shop-section-head"><div><span class="eyebrow">NEXT ACTIONS</span><h4>Nothing important hidden.</h4><p>Tap an action to jump straight to the right screen.</p></div><button class="shop-link" data-shop-refresh>Refresh</button></div><div class="shop-attention-list">${alerts.map(a=>`<div class="shop-attention ${a.tone}"><span class="shop-attention-icon">${a.icon}</span><div><b>${esc(a.title)}</b><span>${esc(a.detail)}</span></div><button ${a.action?`data-shop-action="${esc(a.action)}"`:`data-shop-go="${a.view}"`}>${esc(a.cta)}</button></div>`).join("")}</div></article>`;
   }
 
   function renderPipeline(metrics){
@@ -193,10 +195,10 @@
     const open=metrics.active.length;
     const orderPct=Math.min(100,open/maxOrders*100);
     const maxLitres=Math.max(1,num(provider?.maxDailyLitres||250));
-    const litrePct=Math.min(100,metrics.milkToday/maxLitres*100);
+    const litrePct=Math.min(100,metrics.milkCommittedToday/maxLitres*100);
     const orderTone=orderPct>=95?"danger":orderPct>=75?"warn":"";
     const litreTone=litrePct>=95?"danger":litrePct>=75?"warn":"";
-    return `<article class="shop-card"><div class="shop-section-head"><div><span class="eyebrow">ROUTE CAPACITY</span><h4>Don’t overload today’s run.</h4><p>Limits already set in your provider controls.</p></div></div><div class="shop-capacity"><div class="shop-cap-row"><div class="shop-cap-head"><b>Open orders</b><span>${open} / ${maxOrders}</span></div><div class="shop-bar ${orderTone}"><span style="width:${orderPct.toFixed(1)}%"></span></div></div><div class="shop-cap-row"><div class="shop-cap-head"><b>Milk delivered today</b><span>${metrics.milkToday.toLocaleString("en-IN",{maximumFractionDigits:2})} / ${maxLitres.toLocaleString("en-IN",{maximumFractionDigits:2})} L</span></div><div class="shop-bar ${litreTone}"><span style="width:${litrePct.toFixed(1)}%"></span></div></div></div><div class="shop-tip">Capacity bars are operational guidance. The backend remains the authority and can reject orders that exceed configured limits.</div></article>`;
+    return `<article class="shop-card"><div class="shop-section-head"><div><span class="eyebrow">ROUTE CAPACITY</span><h4>Don’t overload today’s run.</h4><p>Limits already set in your provider controls.</p></div></div><div class="shop-capacity"><div class="shop-cap-row"><div class="shop-cap-head"><b>Open orders</b><span>${open} / ${maxOrders}</span></div><div class="shop-bar ${orderTone}"><span style="width:${orderPct.toFixed(1)}%"></span></div></div><div class="shop-cap-row"><div class="shop-cap-head"><b>Milk committed today</b><span>${metrics.milkCommittedToday.toLocaleString("en-IN",{maximumFractionDigits:2})} / ${maxLitres.toLocaleString("en-IN",{maximumFractionDigits:2})} L</span></div><div class="shop-bar ${litreTone}"><span style="width:${litrePct.toFixed(1)}%"></span></div></div></div><div class="shop-tip">Capacity bars are operational guidance. The backend remains the authority and can reject orders that exceed configured limits.</div></article>`;
   }
 
   function renderTrend(metrics){
@@ -230,13 +232,13 @@
     const ps=productStats();
     const todayOrders=Number(perf.today_orders??metrics.todayOrders.length);
     const deliveredToday=Number(perf.today_delivered??metrics.deliveredToday.length);
-    const salesToday=num(perf.today_sales);
+    const salesToday=Number(perf.today_sales??metrics.deliveredToday.reduce((sum,o)=>sum+num(o.total),0));
     const activeOrders=Number(perf.active_orders??metrics.active.length);
     host.innerHTML=`<div class="shop-cockpit">${renderHero(ps,metrics)}
       <div class="shop-grid-4">
         <div class="shop-card"><span class="shop-metric-label">NEW ORDERS</span><b class="shop-metric-value">${metrics.placed.length}</b><span class="shop-metric-sub">${metrics.placed.length?"Need a response now":"Queue clear"}</span></div>
         <div class="shop-card"><span class="shop-metric-label">ACTIVE FLOW</span><b class="shop-metric-value">${activeOrders}</b><span class="shop-metric-sub">Accepted, packing or on route</span></div>
-        <div class="shop-card"><span class="shop-metric-label">DELIVERED TODAY</span><b class="shop-metric-value">${deliveredToday}</b><span class="shop-metric-sub">${metrics.milkToday.toLocaleString("en-IN",{maximumFractionDigits:2})} L fulfilled</span></div>
+        <div class="shop-card"><span class="shop-metric-label">DELIVERED TODAY</span><b class="shop-metric-value">${deliveredToday}</b><span class="shop-metric-sub">${metrics.milkDeliveredToday.toLocaleString("en-IN",{maximumFractionDigits:2})} L fulfilled</span></div>
         <div class="shop-card"><span class="shop-metric-label">SALES TODAY</span><b class="shop-metric-value">${money(salesToday)}</b><span class="shop-metric-sub">${todayOrders} order${todayOrders===1?"":"s"} created today</span></div>
       </div>
       <div class="shop-layout"><div style="display:grid;gap:14px">${renderAttention(perf,metrics,ps)}${renderPipeline(metrics)}${renderTrend(metrics)}</div><div style="display:grid;gap:14px">${renderCapacity(metrics)}${renderQuick()} ${renderLiveDeliveries(orders)}</div></div>\n      <article class="shop-card"><div class="shop-section-head"><div><span class="eyebrow">SELLER HEALTH</span><h4>How the store is performing</h4><p>Live figures from your provider account and delivered-order history.</p></div><button class="shop-link" data-shop-go="profile">Profile</button></div><div class="shop-health"><div><small>RATING</small><b>${Number(perf.rating_avg||0).toFixed(1)} / 5</b><span>Customer rating average</span></div><div><small>AVG ORDER</small><b>${money(perf.avg_order_value)}</b><span>Delivered order value</span></div><div><small>FULFILMENT</small><b>${metrics.todayOrders.length?Math.round(metrics.deliveredToday.length/metrics.todayOrders.length*100):0}%</b><span>Today’s delivered share</span></div><div><small>OPEN LOAD</small><b>${activeOrders} / ${Math.max(1,num(provider?.maxOpenOrders||25))}</b><span>Current queue</span></div></div></article>
@@ -268,7 +270,8 @@
     const now=Date.now(),last=state.lastSent.get(orderId)||0;
     if(now-last<9000)return;
     state.lastSent.set(orderId,now);
-    await api.rpc("provider_add_tracking_event",{p_order_id:orderId,p_latitude:lat,p_longitude:lng,p_eta_minutes:null,p_note:"Provider live location"});
+    const {error}=await api.rpc("provider_add_tracking_event",{p_order_id:orderId,p_latitude:lat,p_longitude:lng,p_eta_minutes:null,p_note:"Provider live location"});
+    if(error)throw error;
   }
 
   function stopShare(orderId){
