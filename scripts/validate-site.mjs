@@ -102,6 +102,45 @@ if(fs.existsSync(adminIntelPath)){
   if(!adminIntel.includes("Latest seven dates in the selected overview range")) errors.push("admin-intelligence.js -> GMV range label must match selected range");
   if(!adminIntel.includes("loaded admin index")) errors.push("admin-intelligence.js -> bounded customer index must be disclosed");
 }
+const resiliencePath=path.join(root,"resilience.js");
+if(!localFiles.has("/resilience.js")) errors.push("required runtime file missing /resilience.js");
+else{
+  const resilienceText=fs.readFileSync(resiliencePath,"utf8");
+  for(const contract of ["unhandledrejection","network_failure","storage_parse_error","retryRead","showRecoveryNotice","client-error-report"])
+    if(!resilienceText.includes(contract)) errors.push("resilience.js -> missing reliability contract "+contract);
+}
+if(fs.existsSync(path.join(root,"auth.js"))&&!fs.readFileSync(path.join(root,"auth.js"),"utf8").includes('new URL(value,PRODUCTION_ORIGIN+"/auth.html")')) errors.push("auth.js -> safe relative return-path normalization missing");
+if(fs.existsSync(path.join(root,"checkout.js"))&&fs.readFileSync(path.join(root,"checkout.js"),"utf8").includes('let cart=JSON.parse(localStorage.getItem(CART_KEY)')) errors.push("checkout.js -> unguarded cart storage parse");
+if(fs.existsSync(path.join(root,"provider.js"))&&fs.readFileSync(path.join(root,"provider.js"),"utf8").includes('JSON.parse(localStorage.getItem(STORAGE_KEY)')) errors.push("provider.js -> unguarded provider storage parse");
+if(fs.existsSync(path.join(root,"admin.js"))){
+  const adminText=fs.readFileSync(path.join(root,"admin.js"),"utf8");
+  if(!adminText.includes("admin_list_client_error_reports")) errors.push("admin.js -> System Health RPC missing");
+  if(!adminText.includes('section==="health"')) errors.push("admin.js -> System Health route missing");
+}
+if(fs.existsSync(path.join(root,"admin.html"))){
+  const adminHtml=fs.readFileSync(path.join(root,"admin.html"),"utf8");
+  if(!adminHtml.includes('data-section="health"')) errors.push("admin.html -> System Health navigation missing");
+  if(!adminHtml.includes('admin.js?v=20261009.1')) errors.push("admin.html -> admin runtime cache version stale");
+}
+for(const file of htmlFiles){
+  const htmlText=fs.readFileSync(path.join(root,file.slice(1)),"utf8");
+  if(!htmlText.includes('/Dudh-Wallah/resilience.js?v=20261009.1')) errors.push(file+" -> resilience bootstrap missing");
+}
+if(localFiles.has("/sw.js")){
+  const swCheck=fs.readFileSync(path.join(root,"sw.js"),"utf8");
+  const swMatch=swCheck.match(/const ASSETS=\[(.*?)\];/s);
+  const cached=new Set(swMatch?[...swMatch[1].matchAll(/["']([^"']+)["']/g)].map(x=>x[1].split(/[?#]/)[0]):[]);
+  for(const file of htmlFiles){
+    const htmlText=fs.readFileSync(path.join(root,file.slice(1)),"utf8");
+    let scriptMatch;const scripts=/<script[^>]+src=["']([^"']+)["']/gi;
+    while((scriptMatch=scripts.exec(htmlText))){
+      const src=scriptMatch[1];
+      if(src.startsWith("/Dudh-Wallah/")&&/\.js(?:\?|$)/.test(src)&&!cached.has(src.split(/[?#]/)[0]))
+        errors.push(file+" -> local script missing from PWA precache: "+src);
+    }
+  }
+}
+
 if(errors.length){
   console.error("Doodhwala site contract validation failed:");
   for(const e of errors) console.error(" - "+e);
